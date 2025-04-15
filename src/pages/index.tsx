@@ -64,6 +64,11 @@ import { TimestampedPrompt } from "@/features/amicaLife/eventHandler";
 import { handleChatLogs } from "@/features/externalAPI/externalAPI";
 import { VerticalSwitchBox } from "@/components/switchBox";
 import { ThoughtText } from "@/components/thoughtText";
+import ArbiusModelOperation from "@/components/arbiusModelProcess";
+import { ArbiusContext } from "@/features/arbius/arbiusContext";
+import { useAccount } from "wagmi";
+import { ArbiusState } from "@/features/arbius/arbius";
+import { ethers } from "ethers";
 
 const m_plus_2 = M_PLUS_2({
   variable: "--font-m-plus-2",
@@ -117,6 +122,7 @@ export default function Home() {
   const { t, i18n } = useTranslation();
   const currLang = i18n.resolvedLanguage;
   const { viewer } = useContext(ViewerContext);
+  const { arbiusModel } = useContext(ArbiusContext);
   const { alert } = useContext(AlertContext);
   const { chat: bot } = useContext(ChatContext);
   const { amicaLife: amicaLife } = useContext(AmicaLifeContext);
@@ -129,6 +135,11 @@ export default function Home() {
   const [thoughtMessage, setThoughtMessage] = useState("");
   const [shownMessage, setShownMessage] = useState<Role>("system");
   const [subconciousLogs, setSubconciousLogs] = useState<TimestampedPrompt[]>([]);
+  const [arbiusState, setArbiusState] = useState<ArbiusState>({
+    currentStep: 0,
+    completedSteps: [],
+    isProcessing: false
+  });
 
   // showContent exists to allow ssr
   // otherwise issues from usage of localStorage and window will occur
@@ -155,10 +166,26 @@ export default function Home() {
 
   const [isVRHeadset, setIsVRHeadset] = useState(false);
 
+  const { address } = useAccount();
 
   useEffect(() => {
     amicaLife.checkSettingOff(!showSettings);
   }, [showSettings, amicaLife]);
+
+  useEffect(() => {
+    const backend = config("chatbot_backend");
+
+    const setupSigner = async () => {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+  
+      if (backend === 'arbius_llm') {
+        await arbiusModel.initialize(signer, setArbiusState);
+      }
+    };
+  
+    setupSigner();
+  }, [address, setArbiusState]);
 
   useEffect(() => {
     if (muted === null) {
@@ -292,13 +319,13 @@ export default function Home() {
     } catch (err) {
       console.error(err);
     }
-
   }
 
 
   useEffect(() => {
     bot.initialize(
       amicaLife,
+      arbiusModel,
       viewer,
       alert,
       setChatLog,
@@ -539,6 +566,9 @@ export default function Home() {
           </div>
         </div>    
       </div>
+
+      
+      {config("chatbot_backend") == "arbius_llm" && <ArbiusModelOperation arbiusState={arbiusState} /> }
 
       {showChatLog && <ChatLog messages={chatLog} />}
 
