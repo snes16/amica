@@ -1,45 +1,68 @@
 import React, { useState, useEffect } from 'react';
 import {
     CheckCircleIcon,
-    BoltIcon,
-    DocumentIcon,
-    CpuChipIcon,
     ArrowPathIcon,
-    BeakerIcon
+    ArrowUpTrayIcon,      
+    Cog6ToothIcon,       
+    ArrowDownTrayIcon,   
+    CheckBadgeIcon        
 } from "@heroicons/react/24/outline";
 import { ArbiusState } from '@/features/arbius/arbius';
 
 export const arbiusProcessSteps = [
     {
-        icon: <DocumentIcon className="h-5 w-5" />,
+        icon: <ArrowUpTrayIcon className="h-5 w-5" />, 
         title: "Submit Task",
-        description: "Submit the task to arbius engine",
+        description: (arbiusState: ArbiusState) => 
+            arbiusState.taskId ? (
+                <a
+                    href={`https://arbius.ai/task/${arbiusState.taskId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-300 underline hover:text-emerald-400"
+                >
+                    Task Status
+                </a>
+            ) : (
+                "Submitting the task to Arbius engine..."
+            ),
         color: "text-emerald-400",
         bgColor: "bg-emerald-500/20"
     },
     {
-        icon: <CpuChipIcon className="h-5 w-5" />,
+        icon: <Cog6ToothIcon className="h-5 w-5" />,
         title: "Mining",
-        description: "Miner is mining the task",
+        description: "Miner is working on the task",
         color: "text-blue-400",
         bgColor: "bg-blue-500/20"
     },
     {
-        icon: <DocumentIcon className="h-5 w-5" />,
+        icon: <ArrowDownTrayIcon className="h-5 w-5" />, 
         title: "Fetching Result",
-        description: "Fethcing results from IPFS",
+        description: (arbiusState: ArbiusState) => 
+            arbiusState.ipfs ? (
+                <a
+                    href={`${arbiusState.ipfs}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber-300 underline hover:text-amber-400"
+                >
+                    IPFS result
+                </a>
+            ) : (
+                "Fetching results from IPFS..."
+            ),
         color: "text-amber-400",
         bgColor: "bg-amber-500/20"
     },
     {
-        icon: <CheckCircleIcon className="h-5 w-5" />,
+        icon: <CheckBadgeIcon className="h-5 w-5" />, 
         title: "Complete",
-        description: "Process successfully completed",
+        description: "Process successfully completed.",
         color: "text-orange-400",
         bgColor: "bg-orange-500/20"
     }
 ];
-
 
 
 export default function ArbiusProcessIndicator({
@@ -80,8 +103,8 @@ export default function ArbiusProcessIndicator({
                                             <div className={`font-medium ${step.color}`}>
                                                 {step.title}
                                             </div>
-                                            <div className="text-xs text-gray-300">
-                                                {step.description}
+                                            <div className="text-xs text-gray-300 max-h-[300px] overflow-auto">
+                                                {typeof step.description === 'function' ? step.description(arbiusState) : step.description}
                                             </div>
                                         </div>
                                     </div>

@@ -3,6 +3,7 @@ import { pinFileToIPFS, cidify } from "@/utils/ipfs";
 import ArbiusAbi from "./abis/arbius.json";
 import ERC20Abi from "./abis/erc20.json";
 import { arbiusProcessSteps } from "@/components/arbiusModelProcess";
+import { config } from "@/utils/config";
 
 export type ArbiusState = {
   currentStep: number;
@@ -10,12 +11,12 @@ export type ArbiusState = {
   isProcessing: boolean;
   taskId?: string;
   result?: string;
+  ipfs?: string;
   error?: string;
 };
 
 const arbiusAddress = process.env.NEXT_PUBLIC_ARBIUS_ADDRESS as `0x${string}`;
 const tokenAddress = process.env.NEXT_PUBLIC_TOKEN_ADDRESS as `0x${string}`;
-const modelId = process.env.NEXT_PUBLIC_MODEL_ID as `0x${string}`;
 
 export class ArbiusModel {
   address?: string;
@@ -107,34 +108,39 @@ export class ArbiusModel {
     try {
       this.resetState();
       this.updateState({ isProcessing: true });
-
+  
       const taskId = await this.submitTask(prompt);
-      if (!taskId) return;
-
-      this.advanceStep();
+      if (!taskId) throw new Error("Task submission failed");
       this.updateState({ taskId });
-
+      this.advanceStep();
+  
       const cid = await this.waitForSolutionCID(taskId);
-      const url = `https://ipfs.arbius.org/ipfs/${cidify(cid)}/out-1.txt`;
-
+      const ipfs = `https://ipfs.arbius.org/ipfs/${cidify(cid)}/out-1.txt`;
+      this.updateState({ ipfs });
       this.advanceStep();
-
-      const res = await fetch(url);
+  
+      const res = await fetch(ipfs);
       if (!res.ok) throw new Error("Failed to fetch from IPFS");
-
       const text = await res.text();
-
+  
+      this.updateState({
+        result: text,
+        isProcessing: false,
+      });
       this.advanceStep();
-      this.updateState({ isProcessing: false, result: text });
-
+  
       return text;
-    } catch (err) {
+    } catch (err: any) {
       console.error("❌ Failed to get model response:", err);
+      this.updateState({ isProcessing: false, error: err.message });
     }
   }
+  
 
   public async submitTask(prompt: string): Promise<string | undefined> {
     if (!this.signer || !this.address) throw new Error("Signer not initialized");
+
+    const modelId = config("arbius_llm_model_id") as `0x${string}`;
 
     try {
       const input = JSON.stringify({ prompt });

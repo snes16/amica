@@ -66,7 +66,7 @@ import { VerticalSwitchBox } from "@/components/switchBox";
 import { ThoughtText } from "@/components/thoughtText";
 import ArbiusModelOperation from "@/components/arbiusModelProcess";
 import { ArbiusContext } from "@/features/arbius/arbiusContext";
-import { useAccount } from "wagmi";
+import { useAccount, useWalletClient } from "wagmi";
 import { ArbiusState } from "@/features/arbius/arbius";
 import { ethers } from "ethers";
 
@@ -166,7 +166,8 @@ export default function Home() {
 
   const [isVRHeadset, setIsVRHeadset] = useState(false);
 
-  const { address } = useAccount();
+  const { isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
 
   useEffect(() => {
     amicaLife.checkSettingOff(!showSettings);
@@ -176,16 +177,16 @@ export default function Home() {
     const backend = config("chatbot_backend");
 
     const setupSigner = async () => {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      if (backend === 'arbius_llm' && isConnected && walletClient) {
+      const provider = new ethers.BrowserProvider(walletClient.transport);
       const signer = await provider.getSigner();
   
-      if (backend === 'arbius_llm') {
-        await arbiusModel.initialize(signer, setArbiusState);
+      await arbiusModel.initialize(signer, setArbiusState);
       }
     };
   
     setupSigner();
-  }, [address, setArbiusState]);
+  }, [isConnected, walletClient, setArbiusState]);
 
   useEffect(() => {
     if (muted === null) {
