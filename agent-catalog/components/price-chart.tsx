@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Line } from "react-chartjs-2"
 import {
   Chart as ChartJS,
@@ -18,75 +18,46 @@ import { Button } from "./ui/button"
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, TimeScale)
 
-const options = {
-  responsive: true,
-  interaction: {
-    mode: "index" as const,
-    intersect: false,
-  },
-  plugins: {
-    legend: {
-      display: false,
-    },
-    title: {
-      display: false,
-    },
-  },
-  scales: {
-    x: {
-      type: "time" as const,
-      time: {
-        unit: "day" as const,
-      },
-      grid: {
-        display: false,
-      },
-    },
-    y: {
-      position: "right" as const,
-      grid: {
-        color: "rgba(107, 114, 128, 0.1)",
-      },
-      ticks: {
-        callback: (value: any) => `$${value.toLocaleString()}`,
-      },
-    },
-  },
-}
-
-function generateMockData(days: number) {
-  const data = []
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - days)
-
-  for (let i = 0; i < days; i++) {
-    const date = new Date(startDate)
-    date.setDate(date.getDate() + i)
-    data.push({
-      x: date.toISOString(),
-      y: Math.random() * 1000 + 5000, // Random price between $5000 and $6000
-    })
-  }
-
-  return data
-}
-
 const timeFrames = [
-  { label: "1D", days: 1 },
-  { label: "1W", days: 7 },
-  { label: "1M", days: 30 },
-  { label: "3M", days: 90 },
-  { label: "1Y", days: 365 },
+  { label: "1D", ms: 1 * 24 * 60 * 60 * 1000 },
+  { label: "1W", ms: 7 * 24 * 60 * 60 * 1000 },
+  { label: "1M", ms: 30 * 24 * 60 * 60 * 1000 },
+  { label: "3M", ms: 90 * 24 * 60 * 60 * 1000 },
+  { label: "1Y", ms: 365 * 24 * 60 * 60 * 1000 },
+  { label: "All", ms: Infinity },
 ]
 
-export function PriceChart({ priceHistory }: { priceHistory: any }) {
-  const [selectedTimeFrame, setSelectedTimeFrame] = useState(timeFrames[2]);
+const getTimeUnit = (label: string): "minute" | "hour" | "day" | "month" => {
+  switch (label) {
+    case "1D":
+      return "minute"
+    case "1W":
+      return "hour"
+    case "1M":
+    case "3M":
+      return "day"
+    case "1Y":
+      return "month"
+    default:
+      return "day"
+  }
+}
 
-  const filteredData = priceHistory.filter(
-    (d: { x: string | number | Date }) => new Date(d.x) >= new Date(Date.now() - selectedTimeFrame.days * 24 * 60 * 60 * 1000)
-  );
+export function PriceChart({ priceHistory }: { priceHistory: { x: string; y: number }[] }) {
+  const [selectedTimeFrame, setSelectedTimeFrame] = useState(timeFrames[2]) // Default: 1M
 
-  const data = {
+  const latestTimestamp = useMemo(() => {
+    return priceHistory.length > 0
+      ? new Date(priceHistory[priceHistory.length - 1].x).getTime()
+      : Date.now()
+  }, [priceHistory])
+
+  const filteredData = useMemo(() => {
+    if (selectedTimeFrame.ms === Infinity) return priceHistory
+    return priceHistory.filter((d) => new Date(d.x).getTime() >= latestTimestamp - selectedTimeFrame.ms)
+  }, [priceHistory, selectedTimeFrame, latestTimestamp])
+
+  const chartData = {
     datasets: [
       {
         label: "Price",
@@ -98,7 +69,37 @@ export function PriceChart({ priceHistory }: { priceHistory: any }) {
         tension: 0.1,
       },
     ],
-  };
+  }
+
+  const chartOptions = useMemo(() => ({
+    responsive: true,
+    interaction: {
+      mode: "index" as const,
+      intersect: false,
+    },
+    plugins: {
+      legend: { display: false },
+      title: { display: false },
+    },
+    scales: {
+      x: {
+        type: "time" as const,
+        time: {
+          unit: getTimeUnit(selectedTimeFrame.label),
+        },
+        grid: { display: false },
+      },
+      y: {
+        position: "right" as const,
+        grid: {
+          color: "rgba(107, 114, 128, 0.1)",
+        },
+        ticks: {
+          callback: (value: any) => `$${value.toLocaleString()}`,
+        },
+      },
+    },
+  }), [selectedTimeFrame])
 
   return (
     <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
@@ -110,7 +111,7 @@ export function PriceChart({ priceHistory }: { priceHistory: any }) {
           {timeFrames.map((tf) => (
             <Button
               key={tf.label}
-              variant={selectedTimeFrame === tf ? "default" : "outline"}
+              variant={selectedTimeFrame.label === tf.label ? "default" : "outline"}
               size="sm"
               onClick={() => setSelectedTimeFrame(tf)}
               className="font-roboto-mono"
@@ -120,7 +121,7 @@ export function PriceChart({ priceHistory }: { priceHistory: any }) {
           ))}
         </div>
       </div>
-      <Line options={options} data={data} />
+      <Line options={chartOptions} data={chartData} />
     </div>
-  );
+  )
 }

@@ -1,52 +1,74 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import type { Agent } from "@/types/agent";
 import { ERC721_ABI } from "@/utils/abi/erc721";
-
-// const CONTRACT_ADDRESS = "0x7e42c9d9946bA673415575C3a54dF5b37D68c925";
-// const INFURA_RPC = "https://arbitrum-sepolia.infura.io/v3/2100216e5c5b451091e14246d10deaff";
+import { useQuery } from "@tanstack/react-query";
+import { CACHE_TTL } from "@/lib/query-client"; 
 
 export function useAgents() {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: agents = [],
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: ['agents'],
+    queryFn: fetchAgents,
+    // These will fall back to the defaults in queryClient if not specified
+    // You can override them here if needed for this specific query
+  });
 
-  useEffect(() => {
-    const fetchAgents = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  return { agents, loading, error: error ? (error as Error).message : null };
+}
 
-        // Load cached agents from localStorage
-        const cachedAgents = JSON.parse(localStorage.getItem("agents") || "[]") as Agent[];
-        setAgents(cachedAgents);
+async function fetchAgents(): Promise<Agent[]> {
+  try {
+    // Load cached agents from localStorage
+    const cachedData = localStorage.getItem("agents");
+    const cachedTimestamp = localStorage.getItem("agents_timestamp");
+    
+    const now = Date.now();
+    const isCacheValid = cachedData && cachedTimestamp && 
+      (now - parseInt(cachedTimestamp, 10)) < CACHE_TTL;
+    
+    // Return cached data if it's still valid
+    if (isCacheValid) {
+      return JSON.parse(cachedData) as Agent[];
+    }
+    
+    const INFURA_RPC = process.env.NEXT_PUBLIC_INFURA_RPC;
+    const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
-        const INFURA_RPC = process.env.NEXT_PUBLIC_INFURA_RPC;
-        const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+    if (!CONTRACT_ADDRESS || !INFURA_RPC) {
+      throw new Error("Environment variables are not defined");
+    }
 
-        if (!CONTRACT_ADDRESS || !INFURA_RPC) {
-          throw new Error("NEXT_PUBLIC is not defined");
-        }
+    const provider = new ethers.JsonRpcProvider(INFURA_RPC);
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, ERC721_ABI, provider);
 
-        const provider = new ethers.JsonRpcProvider(INFURA_RPC);
-
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, ERC721_ABI, provider);
-
-        const totalNFTs = await contract.getTokenIdCounter();
-        const fetchedAgents: Agent[] = [];
-
-        for (let tokenId = 0; tokenId < totalNFTs; tokenId++) {
-          try {
-            const metadataKeys = ["name" ,"description", "image", "vrm_url", "bg_url"];
-            const metadata = await contract.getMetadata(tokenId, metadataKeys);
-
+    // Get total number of tokens
+    const totalNFTs = await contract.getTokenIdCounter();
+    
+    // Create batch of token IDs (in chunks to avoid too large requests)
+    const tokenIds = Array.from({ length: Number(totalNFTs) }, (_, i) => i);
+    const metadataKeys = ["name", "description", "image", "vrm_url", "bg_url"];
+    
+    // Fetch in chunks of 20 tokens at a time to avoid request size limits
+    const chunkSize = 20;
+    const fetchedAgents: Agent[] = [];
+    
+    for (let i = 0; i < tokenIds.length; i += chunkSize) {
+      const chunk = tokenIds.slice(i, i + chunkSize);
+      
+      // Create a multicall-style batch of promises
+      const promises = chunk.map(tokenId => 
+        contract.getMetadata(tokenId, metadataKeys)
+          .then((metadata: string[]) => {
             if (!metadata || metadata.length === 0 || metadata[0] === "0x") {
-              continue;
+              return null;
             }
-
-            fetchedAgents.push({
+            
+            return {
               id: `${tokenId}`,
               name: metadata[0] || "Unknown",
               token: "AINFT",
@@ -59,37 +81,34 @@ export function useAgents() {
               tier: { name: "Teen", level: 4, stakedAIUS: 5000 },
               vrmUrl: metadata[3],
               bgUrl: metadata[4],
-            });
-          } catch (err) {
+            };
+          })
+          .catch(err => {
             console.error(`Error fetching metadata for token ${tokenId}:`, err);
-          }
-        }
+            return null;
+          })
+      );
+      
+      // Execute batch
+      const results = await Promise.all(promises);
+      fetchedAgents.push(...results.filter(Boolean) as Agent[]);
+    }
 
-        // Merge with existing cached data
-        const updatedAgents = mergeAgents(cachedAgents, fetchedAgents);
+    // Merge with existing cached data if there was any
+    const cachedAgents = cachedData ? JSON.parse(cachedData) as Agent[] : [];
+    const updatedAgents = mergeAgents(cachedAgents, fetchedAgents);
 
-        // Store updated data in localStorage
-        localStorage.setItem("agents", JSON.stringify(updatedAgents));
-        setAgents(updatedAgents);
-      } catch (err) {
-        console.error("Error fetching agents:", err);
-        setError("Failed to fetch agents.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAgents();
-  }, []);
-
-  return { agents, loading, error };
+    // Store updated data in localStorage with timestamp
+    localStorage.setItem("agents", JSON.stringify(updatedAgents));
+    localStorage.setItem("agents_timestamp", now.toString());
+    
+    return updatedAgents;
+  } catch (err) {
+    console.error("Error fetching agents:", err);
+    throw new Error("Failed to fetch agents");
+  }
 }
 
-/**
- * Merges cached agents with newly fetched agents.
- * - Updates existing agents if metadata has changed.
- * - Adds new agents that were not in the cache.
- */
 function mergeAgents(cached: Agent[], fetched: Agent[]): Agent[] {
   const agentMap = new Map<string, Agent>();
 

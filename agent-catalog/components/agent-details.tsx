@@ -1,21 +1,22 @@
-"use client"
+"use client";
 
-import type { Agent } from "@/types/agent"
-import VRMDemo from "./vrm-demo"
-import { PriceChart } from "./price-chart"
-import { TokenData } from "./token-data"
-import { AgentDescription } from "./agent-description"
-import { SocialMediaButtons } from "./social-media-buttons"
-import { AgentTags } from "./agent-tags"
-import { AgentTiers } from "./agent-tiers"
-import { Button } from "./ui/button"
-import { MessageSquare, ArrowRightLeft } from "lucide-react"
-import { Integrations } from "./integrations"
-import { useEffect, useState } from "react"
-import { useTokens } from "@/hooks/use-token"
+import type { Agent } from "@/types/agent";
+import VRMDemo from "./vrm-demo";
+import { PriceChart } from "./price-chart";
+import { TokenData } from "./token-data";
+import { AgentDescription } from "./agent-description";
+import { SocialMediaButtons } from "./social-media-buttons";
+import { AgentTags } from "./agent-tags";
+import { AgentTiers } from "./agent-tiers";
+import { Button } from "./ui/button";
+import { MessageSquare, ArrowRightLeft } from "lucide-react";
+import { Integrations } from "./integrations";
+import { useEffect, useState } from "react";
+import { useTokens } from "@/hooks/use-token";
+import { AlertTriangle } from "lucide-react"; 
 
 interface AgentDetailsProps {
-  agent: Agent
+  agent: Agent;
 }
 
 const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
@@ -24,36 +25,75 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
   const [vrmLoaded, setVrmLoaded] = useState(false);
   const { stats, priceHistory, tokenAddress, loading, error } = useTokens(Number(agent.id));
 
-  console.log("tokenAddress", tokenAddress);
+  const isPairNotCreated = error?.message.includes("Pair not created");
+
+  if (loading) {
+    return (
+      <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-sm border-b">
+        <div className="flex justify-center items-center p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !isPairNotCreated) {
+    return (
+      <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-sm border-b">
+        <div className="p-4 text-red-500">Error loading agents: {error.message}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white text-gray-800">
       <div className="container mx-auto px-4 py-12">
-        <h1 className="text-5xl font-orbitron font-bold text-gray-900 mb-2 text-center">{agent.name}</h1>
+        <h1 className="text-5xl font-orbitron font-bold text-gray-900 mb-2 text-center">
+          {agent.name}
+        </h1>
         <p className="text-center text-gray-500 mb-2 font-roboto-mono">
           {agent.token} | {agent.tier.name} (Level {agent.tier.level})
         </p>
-        <TokenData stats={stats}/>
+
+        {isPairNotCreated && (
+          <div className="p-4 bg-yellow-100 text-yellow-700 rounded-lg flex items-center">
+            <AlertTriangle className="mr-2" />
+            Pair not created yet.
+          </div>
+        )}
+
+
+        {!isPairNotCreated && (<TokenData stats={stats} />)}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mt-12">
           <div className="space-y-12">
-              <VRMDemo
-                vrmUrl={agent.vrmUrl}
-                bgUrl={agent.bgUrl}
-                onLoaded={() => setVrmLoaded(true)}
-              />
-            <PriceChart priceHistory={priceHistory} />
+            <VRMDemo
+              vrmUrl={agent.vrmUrl}
+              bgUrl={agent.bgUrl}
+              onLoaded={() => setVrmLoaded(true)}
+            />
+            <PriceChart priceHistory={isPairNotCreated ? [] : priceHistory} />
           </div>
           <div className="space-y-8">
             <div className="flex justify-center space-x-4 mb-8">
               <Button
                 className="bg-blue-500 hover:bg-blue-600 text-white font-roboto-mono"
-                onClick={() => window.open(`${AMICA_URL}/agent/${agent.id}`, "_blank", "noopener,noreferrer")}
+                onClick={() =>
+                  window.open(`${AMICA_URL}/agent/${agent.id}`, "_blank", "noopener,noreferrer")
+                }
               >
                 <MessageSquare className="mr-2 h-4 w-4" /> Chat
               </Button>
-              <Button 
+              <Button
                 className="bg-pink-500 hover:bg-pink-600 text-white font-roboto-mono"
-                onClick={() => window.open(`https://app.uniswap.org/#/swap?inputCurrency=${tokenAddress}`, "_blank", "noopener,noreferrer")}
+                onClick={() =>
+                  window.open(
+                    `https://app.uniswap.org/#/swap?inputCurrency=${tokenAddress}`,
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+                disabled={isPairNotCreated}
               >
                 <ArrowRightLeft className="mr-2 h-4 w-4" /> Buy/Sell on Uniswap
               </Button>
@@ -67,6 +107,5 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }
-
