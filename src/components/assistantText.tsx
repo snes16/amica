@@ -22,9 +22,9 @@ export const AssistantText = ({ message }: { message: string }) => {
       <div className="mx-auto max-w-4xl w-full px-4 md:px-16">
         <div className="backdrop-blur-lg rounded-lg">
           <div className="bg-white/70 rounded-lg backdrop-blur-lg shadow-lg">
-            <div className="px-8 pr-1 py-3 bg-rose/90 rounded-t-lg text-white font-bold tracking-wider">
-              <span className="p-4 bg-pink-600/80 rounded-lg rounded-tl-none rounded-tr-none shadow-sm">
-                {config('name').toUpperCase()}
+            <div className="px-8 pr-1 py-3 bg-rose/90 rounded-t-lg text-black font-bold tracking-wider">
+              <span className="p-4 bg-yellow-500/80 rounded-lg rounded-tl-none rounded-tr-none shadow-sm">
+                {config('name')}
               </span>
               <IconButton
                 iconName="24/FrameSize"
