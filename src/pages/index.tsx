@@ -360,8 +360,8 @@ export default function Home() {
         </div>
       )}
 
-      <Introduction open={config("show_introduction") === 'true'} />
-      <ArbiusIntroduction open={showArbiusIntroduction} close={() => setShowArbiusIntroduction(false)} />
+      {/* <Introduction open={config("show_introduction") === 'true'} />
+      <ArbiusIntroduction open={showArbiusIntroduction} close={() => setShowArbiusIntroduction(false)} /> */}
 
       <LoadingProgress />
 
@@ -384,12 +384,12 @@ export default function Home() {
       <div className="absolute z-10 m-2">
         <div className="grid grid-flow-col gap-[8px] place-content-end mt-2 bg-slate-800/40 rounded-md backdrop-blur-md shadow-sm">
           <div className='flex flex-col justify-center items-center p-1 space-y-3'>
-            <MenuButton
+            {/* <MenuButton
               large={isVRHeadset}
               icon={WrenchScrewdriverIcon}
               onClick={() => setShowSettings(true)}
               label="show settings"
-            />
+            /> */}
 
             {showChatLog ? (
               <MenuButton
@@ -439,7 +439,7 @@ export default function Home() {
               />
             )}
 
-            <MenuButton
+            {/* <MenuButton
               large={isVRHeadset}
               icon={ShareIcon}
               href="/share"
@@ -467,7 +467,7 @@ export default function Home() {
                 onClick={toggleShowSubconciousText}
                 label="show subconscious"
               />
-            )}
+            )} */}
 
             {/* Temp Disable : WebXR */}
             {/*<MenuButton
@@ -512,7 +512,7 @@ export default function Home() {
               />
             )} */}
 
-            <div className="flex flex-row items-center space-x-2">
+            {/* <div className="flex flex-row items-center space-x-2">
                 <VerticalSwitchBox
                   value={showChatMode}
                   label={""}
@@ -534,7 +534,7 @@ export default function Home() {
                   onClick={() => setShowStreamWindow(true)}
                 />
               )}
-            </div>
+            </div> */}
             
           </div>
         </div>    
@@ -566,6 +566,11 @@ export default function Home() {
       <AddToHomescreen />
 
       <Alert />
+
+      <div className="fixed bottom-4 right-4 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-lg shadow-md text-xs text-gray-500 dark:text-gray-400">
+        Using <a href="https://heyamica.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 dark:hover:text-gray-300">Amica</a> by <a href="https://arbius.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 dark:hover:text-gray-300">Arbius.AI</a>
+      </div>
+
     </div>
   );
 }
