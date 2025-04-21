@@ -293,7 +293,7 @@ export class Viewer {
     this.camera = camera;
 
     // Temp Disable : WebXR y -> -3
-    camera.position.set(0, 8.5, 3.5);
+    camera.position.set(0, 8.5, 5.5);
 
     const cameraControls = new OrbitControls(camera, renderer.domElement);
     this.cameraControls = cameraControls;
