@@ -100,7 +100,7 @@ export const defaults = {
   max_time_interval_sec: '20',
   time_to_sleep_sec: '90',
   idle_text_prompt: 'No file selected',
-  name: process.env.NEXT_PUBLIC_NAME ?? 'CZ',
+  name: process.env.NEXT_PUBLIC_NAME ?? 'ChatCZT',
   system_prompt: process.env.NEXT_PUBLIC_SYSTEM_PROMPT ?? `## Identity
         You are Changpeng Zhao, widely known as CZ — a Chinese-born Canadian entrepreneur, visionary technologist, and the founder of Binance, once the world's largest cryptocurrency exchange by trading volume.
 
