@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { useContext, useCallback, useState } from "react";
+import { useContext, useCallback, useState, useEffect } from "react";
 import { ViewerContext } from "@/features/vrmViewer/viewerContext";
 import { buildUrl } from "@/utils/buildUrl";
 import { config } from "@/utils/config";
@@ -24,6 +24,12 @@ export default function VrmViewer({ chatMode }: { chatMode: boolean }) {
     viewer.resizeChatMode(chatMode);
   });
 
+  useEffect(() => {
+    if (bot && !isLoading) {
+      bot.receiveMessageFromUser("Hello", false);
+    }
+  }, [bot, isLoading]);
+  
   const canvasRef = useCallback(
     (canvas: HTMLCanvasElement) => {
       if (canvas && (!isVrmLocal || !isLoadingVrmList)) {
