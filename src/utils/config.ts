@@ -97,7 +97,7 @@ export const defaults = {
   x_bearer_token: process.env.NEXT_PUBLIC_X_BEARER_TOKEN ?? '',
   telegram_bot_token: process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN ?? '',
   min_time_interval_sec: '10',
-  max_time_interval_sec: '20',
+  max_time_interval_sec: '40',
   time_to_sleep_sec: '90',
   idle_text_prompt: 'No file selected',
   name: process.env.NEXT_PUBLIC_NAME ?? 'ChatCZT',
