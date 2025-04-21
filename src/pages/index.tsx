@@ -486,12 +486,12 @@ export default function Home() {
               label="Virtual Reality"
             />*/}
 
-            {/* <MenuButton
+            <MenuButton
               large={isVRHeadset}
               icon={CodeBracketSquareIcon}
               onClick={() => setShowDebug(true)}
               label="debug"
-            /> */}
+            />
 
             {/* Temp Disable : WebXR */}
             {/* { showChatMode ? (
@@ -570,7 +570,7 @@ export default function Home() {
       <div className="fixed bottom-4 right-4 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-lg shadow-md text-xs text-gray-500 dark:text-gray-400">
         Using <a href="https://heyamica.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 dark:hover:text-gray-300">Amica</a> by <a href="https://arbius.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 dark:hover:text-gray-300">Arbius.AI</a>
       </div>
-      
+
     </div>
   );
 }
