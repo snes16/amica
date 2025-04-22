@@ -9,8 +9,8 @@ import { cleanTranscript, cleanFromPunctuation, cleanFromWakeWord } from "@/util
 import { hasOnScreenKeyboard } from "@/utils/hasOnScreenKeyboard";
 import { AlertContext } from "@/features/alert/alertContext";
 import { ChatContext } from "@/features/chat/chatContext";
-import { openaiWhisper  } from "@/features/openaiWhisper/openaiWhisper";
-import { whispercpp  } from "@/features/whispercpp/whispercpp";
+import { openaiWhisper } from "@/features/openaiWhisper/openaiWhisper";
+import { whispercpp } from "@/features/whispercpp/whispercpp";
 import { config } from "@/utils/config";
 import { WaveFile } from "wavefile";
 import { AmicaLifeContext } from "@/features/amicaLife/amicaLifeContext";
@@ -38,7 +38,7 @@ export default function MessageInput({
   const { alert } = useContext(AlertContext);
   const { amicaLife } = useContext(AmicaLifeContext);
   const { audioControls: moshi } = useContext(AudioControlsContext);
-  const [ moshiMuted, setMoshiMuted] = useState(moshi.isMuted());
+  const [moshiMuted, setMoshiMuted] = useState(moshi.isMuted());
 
   const vad = useMicVAD({
     startOnLoad: false,
@@ -134,7 +134,7 @@ export default function MessageInput({
           amicaLife.pause();
         }
         bot.updateAwake();
-      // Case text doesn't start with wake word and not receive trigger message in amica life
+        // Case text doesn't start with wake word and not receive trigger message in amica life
       } else {
         if (config("amica_life_enabled") === "true" && amicaLife.triggerMessage !== true && !bot.isAwake()) {
           bot.updateAwake();
@@ -156,8 +156,8 @@ export default function MessageInput({
 
     if (config("autosend_from_mic") === 'true') {
       if (!wakeWordEnabled || bot.isAwake()) {
-        bot.receiveMessageFromUser(text,false);
-      } 
+        bot.receiveMessageFromUser(text, false);
+      }
     } else {
       setUserMessage(text);
     }
@@ -165,8 +165,8 @@ export default function MessageInput({
   }
 
   function handleInputChange(event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    onChangeUserMessage(event); 
-  
+    onChangeUserMessage(event);
+
     // Pause amicaLife and update bot's awake status when typing
     if (config("amica_life_enabled") === "true") {
       amicaLife.pause();
@@ -176,7 +176,7 @@ export default function MessageInput({
 
   // for whisper_browser
   useEffect(() => {
-    if (transcriber.output && ! transcriber.isBusy) {
+    if (transcriber.output && !transcriber.isBusy) {
       const output = transcriber.output?.text;
       handleTranscriptionResult(output);
     }
@@ -199,10 +199,10 @@ export default function MessageInput({
   }, [whisperCppOutput]);
 
   function clickedSendButton() {
-    bot.receiveMessageFromUser(userMessage,false);
+    bot.receiveMessageFromUser(userMessage, false);
     // only if we are using non-VAD mode should we focus on the input
-    if (! vad.listening) {
-      if (! hasOnScreenKeyboard()) {
+    if (!vad.listening) {
+      if (!hasOnScreenKeyboard()) {
         inputRef.current?.focus();
       }
     }
@@ -237,7 +237,7 @@ export default function MessageInput({
                 />
               )}
             </div>
-  
+
             <input
               type="text"
               ref={inputRef}
@@ -248,8 +248,11 @@ export default function MessageInput({
                   if (hasOnScreenKeyboard()) {
                     inputRef.current?.blur();
                   }
-  
-                  if (userMessage === "") return;
+
+                  if (userMessage === "") {
+                    return false;
+                  }
+
                   clickedSendButton();
                 }
               }}
@@ -258,19 +261,19 @@ export default function MessageInput({
               autoComplete="off"
               className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-1 focus:ring-inset focus:ring-gray-400 sm:text-sm sm:leading-6"
             />
-  
+
             <div className="flex items-center justify-center">
               <IconButton
                 iconName="24/Send"
                 className="ml-2 bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
+                isProcessing={isChatProcessing || transcriber.isBusy}
+                disabled={isChatProcessing || !userMessage || transcriber.isModelLoading || config("chatbot_backend") === "moshi"}
                 onClick={clickedSendButton}
-                disabled={userMessage.trim() === ""} 
-                isProcessing={false}              
               />
             </div>
           </div>
         </div>
-  
+
         {/* Attribution badge */}
         <div className="bottom-0 mb-2 text-xs px-4 py-2 rounded-lg shadow-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
           Using <a href="https://heyamica.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 dark:hover:text-gray-300">Amica</a> by <a href="https://arbius.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 dark:hover:text-gray-300">Arbius.AI</a>
@@ -278,5 +281,5 @@ export default function MessageInput({
       </div>
     </div>
   );
-  
+
 }
