@@ -486,12 +486,12 @@ export default function Home() {
               label="Virtual Reality"
             />*/}
 
-            {/* <MenuButton
+            <MenuButton
               large={isVRHeadset}
               icon={CodeBracketSquareIcon}
               onClick={() => setShowDebug(true)}
               label="debug"
-            /> */}
+            />
 
             {/* Temp Disable : WebXR */}
             {/* { showChatMode ? (
