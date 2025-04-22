@@ -485,13 +485,14 @@ export default function Home() {
               onClick={() => toggleXR('immersive-vr')}
               label="Virtual Reality"
             />*/}
-
+            
+            {/*
             <MenuButton
               large={isVRHeadset}
               icon={CodeBracketSquareIcon}
               onClick={() => setShowDebug(true)}
               label="debug"
-            />
+            />*/}
 
             {/* Temp Disable : WebXR */}
             {/* { showChatMode ? (
