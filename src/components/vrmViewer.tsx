@@ -23,12 +23,6 @@ export default function VrmViewer({ chatMode }: { chatMode: boolean }) {
   window.addEventListener("resize", () => {
     viewer.resizeChatMode(chatMode);
   });
-
-  useEffect(() => {
-    if (bot && !isLoading) {
-      bot.receiveMessageFromUser("Hello", false);
-    }
-  }, [bot, isLoading]);
   
   const canvasRef = useCallback(
     (canvas: HTMLCanvasElement) => {
