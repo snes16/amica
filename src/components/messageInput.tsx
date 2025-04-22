@@ -211,69 +211,72 @@ export default function MessageInput({
 
   return (
     <div className="fixed bottom-2 z-20 w-full">
-      <div className="mx-auto max-w-4xl p-2 backdrop-blur-lg border-0 rounded-lg">
-        <div className="grid grid-flow-col grid-cols-[min-content_1fr_min-content] gap-[8px]">
-          <div>
-            <div className='flex flex-col justify-center items-center'>
+      <div className="mx-auto max-w-5xl px-2 flex justify-between items-end gap-2">
+        {/* Message input area */}
+        <div className="flex-1 backdrop-blur-lg border-0 rounded-lg p-2">
+          <div className="grid grid-flow-col grid-cols-[min-content_1fr_min-content] gap-2">
+            <div className="flex items-center justify-center">
               {config("chatbot_backend") === "moshi" ? (
                 <IconButton
-                iconName={!moshiMuted ? "24/PauseAlt" : "24/Microphone"}
-                className="bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
-                isProcessing={moshiMuted && moshi.getRecorder() != null}
-                disabled={!moshi.getRecorder()}
-                onClick={() => {
-                  moshi.toggleMute();
-                  setMoshiMuted(!moshiMuted);
-                }}
-              />
+                  iconName={!moshiMuted ? "24/PauseAlt" : "24/Microphone"}
+                  className="bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
+                  isProcessing={moshiMuted && moshi.getRecorder() != null}
+                  disabled={!moshi.getRecorder()}
+                  onClick={() => {
+                    moshi.toggleMute();
+                    setMoshiMuted(!moshiMuted);
+                  }}
+                />
               ) : (
                 <IconButton
-                iconName={vad.listening ? "24/PauseAlt" : "24/Microphone"}
-                className="bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
-                isProcessing={vad.userSpeaking}
-                disabled={config('stt_backend') === 'none' || vad.loading || Boolean(vad.errored)}
-                onClick={vad.toggle}
-              />
+                  iconName={vad.listening ? "24/PauseAlt" : "24/Microphone"}
+                  className="bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
+                  isProcessing={vad.userSpeaking}
+                  disabled={config('stt_backend') === 'none' || vad.loading || Boolean(vad.errored)}
+                  onClick={vad.toggle}
+                />
               )}
             </div>
-          </div>
-
-          <input
-            type="text"
-            ref={inputRef}
-            placeholder={config("chatbot_backend") === "moshi" ? "Disabled in moshi chatbot" : "Write message here..."}
-            onChange={handleInputChange}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                if (hasOnScreenKeyboard()) {
-                  inputRef.current?.blur();
+  
+            <input
+              type="text"
+              ref={inputRef}
+              placeholder={config("chatbot_backend") === "moshi" ? "Disabled in moshi chatbot" : "Write message here..."}
+              onChange={handleInputChange}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (hasOnScreenKeyboard()) {
+                    inputRef.current?.blur();
+                  }
+  
+                  if (userMessage === "") return;
+                  clickedSendButton();
                 }
-
-                if (userMessage === "") {
-                  return false;
-                }
-
-                clickedSendButton();
-              }
-            }}
-            disabled={config("chatbot_backend") === "moshi"}
-
-            className="disabled block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-1 focus:ring-inset focus:ring-gray-400 sm:text-sm sm:leading-6"
-            value={userMessage}
-            autoComplete="off"
-          />
-
-          <div className='flex flex-col justify-center items-center'>
-            <IconButton
-              iconName="24/Send"
-              className="ml-2 bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
-              isProcessing={isChatProcessing || transcriber.isBusy}
-              disabled={isChatProcessing || !userMessage || transcriber.isModelLoading || config("chatbot_backend") === "moshi"}
-              onClick={clickedSendButton}
+              }}
+              disabled={config("chatbot_backend") === "moshi"}
+              value={userMessage}
+              autoComplete="off"
+              className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-1 focus:ring-inset focus:ring-gray-400 sm:text-sm sm:leading-6"
             />
+  
+            <div className="flex items-center justify-center">
+              <IconButton
+                iconName="24/Send"
+                className="ml-2 bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
+                onClick={clickedSendButton}
+                disabled={userMessage.trim() === ""} 
+                isProcessing={false}              
+              />
+            </div>
           </div>
+        </div>
+  
+        {/* Attribution badge */}
+        <div className="bottom-0 mb-2 text-xs px-4 py-2 rounded-lg shadow-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
+          Using <a href="https://heyamica.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 dark:hover:text-gray-300">Amica</a> by <a href="https://arbius.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 dark:hover:text-gray-300">Arbius.AI</a>
         </div>
       </div>
     </div>
   );
+  
 }
