@@ -422,6 +422,35 @@ export const abi =  [
 				"internalType": "uint256",
 				"name": "tokenId",
 				"type": "uint256"
+			},
+			{
+				"internalType": "address",
+				"name": "addr",
+				"type": "address"
+			}
+		],
+		"name": "getAiusAndOwed",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "aius",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "owed",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
 			}
 		],
 		"name": "getApproved",
@@ -460,13 +489,39 @@ export const abi =  [
 		"type": "function"
 	},
 	{
-		"inputs": [],
-		"name": "getTokenIdCounter",
-		"outputs": [
+		"inputs": [
 			{
 				"internalType": "uint256",
-				"name": "",
+				"name": "tokenId",
 				"type": "uint256"
+			}
+		],
+		"name": "getTokenData",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "erc20Token",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "totalSupply",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint112",
+				"name": "reserve0",
+				"type": "uint112"
+			},
+			{
+				"internalType": "uint112",
+				"name": "reserve1",
+				"type": "uint112"
+			},
+			{
+				"internalType": "address",
+				"name": "pairAddress",
+				"type": "address"
 			}
 		],
 		"stateMutability": "view",
@@ -693,6 +748,19 @@ export const abi =  [
 				"internalType": "string",
 				"name": "",
 				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "tokenIdCounter",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
 			}
 		],
 		"stateMutability": "view",

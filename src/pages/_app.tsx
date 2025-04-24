@@ -9,7 +9,7 @@ import {
   RainbowKitProvider,
 } from '@rainbow-me/rainbowkit';
 import { WagmiProvider } from 'wagmi';
-import { arbitrumSepolia } from 'wagmi/chains';
+import { sepolia, arbitrumSepolia } from 'wagmi/chains';
 import {
   QueryClientProvider,
   QueryClient,
@@ -18,7 +18,7 @@ import {
 const config = getDefaultConfig({
   appName: 'arbius.heyamica.com',
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
-  chains: [arbitrumSepolia],
+  chains: [sepolia, arbitrumSepolia],
   ssr: true, // If your dApp uses server side rendering (SSR)
 });
 

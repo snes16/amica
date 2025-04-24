@@ -70,7 +70,7 @@ const montserrat = Montserrat({
 });
 
 // Contract address and ABI for fetching metadata
-const CONTRACT_ADDRESS = "0x7e42c9d9946bA673415575C3a54dF5b37D68c925";
+const CONTRACT_ADDRESS = "0x1b0cA51Ed9B92140e92E31C47476930Fbbee7042";
 
 export default function Agent() {
   const { t, i18n } = useTranslation();
@@ -322,7 +322,7 @@ export default function Agent() {
             </div>
 
             {/* 28px hack to force size */}
-            <div className="flex flex-row items-center space-x-2 w-[28px] h-[28px]">
+            {/* <div className="flex flex-row items-center space-x-2 w-[28px] h-[28px]">
               <Menu as="div">
                 <div>
                   <Menu.Button>
@@ -360,9 +360,9 @@ export default function Agent() {
                   </Menu.Items>
                 </Transition>
               </Menu>
-            </div>
+            </div> */}
 
-            <div className="flex flex-row items-center space-x-2">
+            {/* <div className="flex flex-row items-center space-x-2">
               <Link
                 href="/share"
                 target={isTauri() ? '' : '_blank'}
@@ -373,9 +373,9 @@ export default function Agent() {
                 />
               </Link>
               <span className="text-white hidden">Share</span>
-            </div>
+            </div> */}
 
-            <div className="flex flex-row items-center space-x-2">
+            {/* <div className="flex flex-row items-center space-x-2">
               <Link href="/import">
                 <CloudArrowDownIcon
                   className="h-7 w-7 text-white opacity-50 hover:opacity-100 active:opacity-100 hover:cursor-pointer"
@@ -383,9 +383,9 @@ export default function Agent() {
                 />
               </Link>
               <span className="text-white hidden">Import</span>
-            </div>
+            </div> */}
 
-            <div className="flex flex-row items-center space-x-2">
+            {/* <div className="flex flex-row items-center space-x-2">
               {showSubconciousText ? (
                 <IconBrain
                   className="h-7 w-7 text-white opacity-100 hover:opacity-50 active:opacity-100 hover:cursor-pointer"
@@ -401,7 +401,7 @@ export default function Agent() {
                   onClick={toggleSubconciousText}
                 />
               )}
-            </div>
+            </div> */}
 
             {/*<div className="flex flex-row items-center space-x-2">
                   <CodeBracketSquareIcon
@@ -412,13 +412,13 @@ export default function Agent() {
                   <span className="text-white hidden">Debug</span> 
               </div>*/}
 
-            <div className="flex flex-row items-center space-x-2">
+            {/* <div className="flex flex-row items-center space-x-2">
               <VerticalSwitchBox
                 value={showChatMode}
                 label={""}
                 onChange={toggleChatMode}
               />
-            </div>
+            </div> */}
 
           </div>
         </div>
@@ -447,6 +447,7 @@ export default function Agent() {
       <AddToHomescreen />
 
       <Alert />
+      
     </div>
   );
 }

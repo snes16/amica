@@ -22,10 +22,13 @@ import { IconButton } from '@/components/iconButton';
 import { RadioBox } from '@/components/radioBox';
 import i18n from '@/i18n';
 
-import { useAccount, useReadContract, useWaitForTransactionReceipt, useWriteContract} from 'wagmi';
+import { useAccount, useReadContract, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 import { abi } from '../utils/abi'
+import { ethers } from 'ethers';
+import { id } from 'ethers';
+import { TagsInput } from '@/components/tagsInput';
 
 
 registerPlugin(
@@ -85,6 +88,7 @@ export default function Share() {
   const [vrmSaveType, setVrmSaveType] = useState('');
   const [animationUrl, setAnimationUrl] = useState('');
   const [voiceUrl, setVoiceUrl] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
 
   const [bgFiles, setBgFiles] = useState([]);
   const [vrmFiles, setVrmFiles] = useState([]);
@@ -97,6 +101,11 @@ export default function Share() {
   const [vrmLoadingFromIndexedDb, setVrmLoadingFromIndexedDb] = useState(false);
   const [showUploadLocalVrmMessage, setShowUploadLocalVrmMessage] = useState(false);
 
+  // Transaction state management
+  const [txStatus, setTxStatus] = useState<'idle' | 'pending' | 'confirmed' | 'error' | 'cancelled'>('idle');
+  const [txError, setTxError] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [txReceipt, setTxReceipt] = useState<any>(null);
 
   const [sqid, setSqid] = useState('');
 
@@ -110,14 +119,13 @@ export default function Share() {
   const [characterCreatorType, setCharacterCreatorType] = useState("Sharing");
 
   // Contract address and ABI for fetching metadata
-  const CONTRACT_ADDRESS = "0x7e42c9d9946bA673415575C3a54dF5b37D68c925";
-
+  const CONTRACT_ADDRESS = "0x030960cb9C799b71CB9E3f34B12B110037Dc7fc5";
   const wagmiContractConfig = {
     address: CONTRACT_ADDRESS,
     abi: [
       {
         type: 'function',
-        name: 'getTokenIdCounter',
+        name: 'tokenIdCounter',
         stateMutability: 'view',
         inputs: [],
         outputs: [{ type: 'uint256' }],
@@ -126,18 +134,25 @@ export default function Share() {
   } as const
 
   const { isConnected } = useAccount();
-  const { data : aid } = useReadContract({
+  const { data: aid } = useReadContract({
     ...wagmiContractConfig,
-    functionName: 'getTokenIdCounter',
+    functionName: 'tokenIdCounter',
     args: [],
   })
 
-  const { data: hash, isPending, writeContract } = useWriteContract();
-  const { isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+  const { data: hash, isPending, writeContract, error: writeError } = useWriteContract();
+  const {
+    isLoading: isConfirming,
+    isSuccess: isConfirmed,
+    error: confirmError,
+    data: receipt
+  } = useWaitForTransactionReceipt({
+    hash
+  });
 
   const filterKeys = [
-    "tts_muted", "autosend_from_mic", "wake_word_enabled", "wake_word", 
-    "time_before_idle_sec", "debug_gfx", "language", "show_introduction", 
+    "tts_muted", "autosend_from_mic", "wake_word_enabled", "wake_word",
+    "time_before_idle_sec", "debug_gfx", "language", "show_introduction",
     "show_add_to_homescreen", "animation_url", "voice_url",
     "bg_url", "vrm_url", "youtube_videoid", "system_prompt",
     "vision_system_prompt", "name"
@@ -149,10 +164,10 @@ export default function Share() {
 
   const handleConfigToggle = () => {
     const filteredDefaults = Object.entries(defaults)
-        .filter(([key]) => !filterKeys.includes(key))
-        .reduce((acc: Record<string, any>, [key, value]) => {
-          acc[key] = config(key);
-          return acc;
+      .filter(([key]) => !filterKeys.includes(key))
+      .reduce((acc: Record<string, any>, [key, value]) => {
+        acc[key] = config(key);
+        return acc;
       }, {});
     setFilterDefault(filteredDefaults);
     setShowConfigs((prevState) => !prevState);
@@ -167,6 +182,92 @@ export default function Share() {
       delay(500).then(uploadVrmFromIndexedDb);
     }
   }
+
+  // Prevent navigation during active transactions
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (txStatus === 'pending' || isConfirming) {
+        e.preventDefault();
+        e.returnValue = 'You have a pending transaction. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [txStatus, isConfirming]);
+
+  // Track transaction states
+  useEffect(() => {
+    if (hash) {
+      setTxHash(hash);
+    }
+
+    if (writeError) {
+      const isRejected = writeError.message?.toLowerCase().includes('user rejected');
+
+      // Detect user cancelation
+      if (isRejected) {
+        setTxStatus('idle');
+        setIsMinting(false);
+
+      } else {
+        setTxStatus('error');
+        setTxError(writeError.message);
+        setIsMinting(false);
+      }
+    }
+  
+    if (confirmError) {
+      setTxStatus('error');
+      setTxError(confirmError.message);
+      setIsMinting(false);
+    }
+  }, [hash, isPending, writeError, confirmError, txStatus]);
+
+  // Handle transaction receipt
+  useEffect(() => {
+    if (receipt) {
+      setTxReceipt(receipt);
+      setTxStatus('confirmed');
+      setIsMinting(false);
+
+      try {
+        // Look for the ERC20Created event which is emitted during mint
+        const erc20CreatedEvent = receipt.logs.find((log: any) => {
+          return log.topics && log.topics[0] === id('ERC20Created(uint256,address)').slice(0, 66);
+        });
+
+        if (erc20CreatedEvent && erc20CreatedEvent.topics.length >= 2) {
+          // Parse the tokenId from the event
+          const tokenId = parseInt(erc20CreatedEvent.topics[1]!, 16);
+          setAgentId(tokenId.toString());
+        } else {
+          // If no ERC20Created event, look for Transfer event from ERC721 mint
+          const transferEvent = receipt.logs.find((log: any) => {
+            // Transfer event signature (ERC721 mint)
+            return log.topics &&
+              log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' &&
+              log.topics[1] === '0x0000000000000000000000000000000000000000000000000000000000000000'; // from zero address indicating mint
+          });
+
+          if (transferEvent && transferEvent.topics.length >= 3) {
+            // Parse the tokenId from the transfer event
+            const tokenId = parseInt(transferEvent.topics[3]!, 16);
+            setAgentId(tokenId.toString());
+          } else {
+            // Fall back to the counter if event parsing fails
+            setAgentId(aid?.toString() || '');
+          }
+        }
+      } catch (e) {
+        console.error("Error parsing receipt:", e);
+        setAgentId(aid?.toString() || '');
+      }
+    }
+  }, [receipt, aid]);
 
   useEffect(() => {
     setName(config('name'));
@@ -199,14 +300,14 @@ export default function Share() {
 
   useEffect(() => {
     const uploadThumbnail = async () => {
-      if (thumbData) { 
+      if (thumbData) {
         setThumbFiles([thumbData]);
       }
     };
-  
+
     uploadThumbnail();
   }, [thumbData]);
-  
+
 
   const [isRegistering, setIsRegistering] = useState(false);
   async function registerCharacter() {
@@ -242,33 +343,41 @@ export default function Share() {
     register();
   }
 
+  // Mint character NFT
   const [isMinting, setIsMinting] = useState(false);
   async function mintCharacter() {
     try {
       setIsMinting(true);
+      setTxStatus('pending');
+      setTxError(null);
 
+      // Prepare filtered defaults
       const filteredDefaults = Object.entries(defaults)
         .filter(([key]) => !filterKeys.includes(key))
         .reduce((acc: Record<string, any>, [key, value]) => {
           acc[key] = config(key);
           return acc;
-      }, {});
+        }, {});
 
       setFilterDefault(filteredDefaults);
 
+      // Prepare keys and values for contract
       let keysList = Object.keys(filteredDefaults);
       let valuesList = Object.values(filteredDefaults);
 
-      const lateAssignKeys = ["name","description","image","bg_url","youtube_videoid","vrm_url","animation_url","system_prompt","vision_system_prompt"];
-      const lateAssignValues = [name, description, thumbUrl, bgUrl, youtubeVideoId, vrmUrl, animationUrl, systemPrompt, visionSystemPrompt];
+      const lateAssignKeys = ["name", "description", "image", "bg_url", "youtube_videoid", "vrm_url", "animation_url", "system_prompt", "vision_system_prompt", "tags"];
+      const lateAssignValues = [name, description, thumbUrl, bgUrl, youtubeVideoId, vrmUrl, animationUrl, systemPrompt, visionSystemPrompt, tags.join(',')];
 
-      // Adding late assigned keys and values to the lists
+      // Combine all keys and values
       keysList = [...keysList, ...lateAssignKeys];
       valuesList = [...valuesList, ...lateAssignValues];
 
-      console.log(keysList);  
-      console.log(valuesList); 
+      console.log("Minting with keys:", keysList);
+      console.log("Minting with values:", valuesList);
 
+      // TODO: Check if we're on the correct network
+
+      // Execute the transaction
       writeContract({
         address: CONTRACT_ADDRESS,
         abi,
@@ -276,15 +385,14 @@ export default function Share() {
         args: ["Amica NFT", "AINFT", keysList, valuesList],
       });
 
-      setAgentId(aid?.toString() || '');
-
     } catch (error) {
       console.error("Minting failed:", error);
-      throw error; 
-    } finally {
+      setTxStatus('error');
+      setTxError(error instanceof Error ? error.message : 'Unknown error');
       setIsMinting(false);
     }
   }
+
 
   const router = useRouter();
 
@@ -300,7 +408,7 @@ export default function Share() {
   }, []);
 
   return (
-    
+
     <div className="p-10 md:p-20">
       <style jsx global>
         {`
@@ -314,12 +422,12 @@ export default function Share() {
       </style>
       <div className="fixed top-0 left-0 w-full max-h-full text-black text-xs text-left z-20">
         <div className="p-2 bg-white flex justify-between items-center">
-            <IconButton
-              iconName="24/Close"
-              isProcessing={false}
-              className="bg-secondary hover:bg-secondary-hover active:bg-secondary-active"
-              onClick={handleCloseIcon}/>
-            <ConnectButton/>
+          <IconButton
+            iconName="24/Close"
+            isProcessing={false}
+            className="bg-secondary hover:bg-secondary-hover active:bg-secondary-active"
+            onClick={handleCloseIcon} />
+          <ConnectButton />
         </div>
       </div>
 
@@ -334,10 +442,50 @@ export default function Share() {
           disabled={!!sqid || !!agentId}
         />
       </div>
-      
+
       <div className="col-span-3 max-w-md rounded-xl mt-4">
         <h1 className="text-lg">{t(`Character Creator for ${characterCreatorType}`)}</h1>
       </div>
+
+      {/* Transaction Status Messages */}
+      {characterCreatorType === "Minting" && (
+        <div className="sm:col-span-3 max-w-md rounded-xl mt-4">
+          {txStatus === 'pending' && (
+            <div className="p-4 bg-blue-50 text-blue-700 rounded-md">
+              <p className="font-medium">Transaction Pending</p>
+              <p className="text-sm">Please confirm the transaction in your wallet...</p>
+            </div>
+          )}
+
+          {txStatus === 'error' && (
+            <div className="p-4 bg-red-50 text-red-700 rounded-md">
+              <p className="font-medium">Transaction Failed</p>
+              <p className="text-sm">{txError || 'An error occurred while processing your transaction'}</p>
+              <button
+                onClick={() => setTxStatus('idle')}
+                className="mt-2 text-sm bg-red-100 hover:bg-red-200 px-3 py-1 rounded-md"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {isConfirming && txHash && (
+            <div className="p-4 bg-yellow-50 text-yellow-700 rounded-md">
+              <p className="font-medium">Transaction Confirming</p>
+              <p className="text-sm">Waiting for blockchain confirmation...</p>
+              <a
+                href={`${process.env.NEXT_PUBLIC_BLOCK_EXPLORER_URL}/tx/${txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-500 hover:underline"
+              >
+                View on Block Explorer
+              </a>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -351,7 +499,7 @@ export default function Share() {
                 type="text"
                 className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 value={name}
-                readOnly={!!sqid || !!agentId}
+                readOnly={!!sqid || !!agentId || txStatus !== 'idle'}
                 onChange={(e) => {
                   setName(e.target.value);
                 }}
@@ -368,7 +516,7 @@ export default function Share() {
                 rows={4}
                 className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 value={description}
-                readOnly={!!sqid || !!agentId}
+                readOnly={!!sqid || !!agentId || txStatus !== 'idle'}
                 placeholder={t("Provide a description of the character")}
                 onChange={(e) => {
                   setDescription(e.target.value);
@@ -386,7 +534,7 @@ export default function Share() {
                 rows={4}
                 className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 value={systemPrompt}
-                readOnly={!!sqid || !!agentId}
+                readOnly={!!sqid || !!agentId || txStatus !== 'idle'}
                 onChange={(e) => {
                   setSystemPrompt(e.target.value);
                 }}
@@ -403,7 +551,7 @@ export default function Share() {
                 rows={4}
                 className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 value={visionSystemPrompt}
-                readOnly={!!sqid || !!agentId}
+                readOnly={!!sqid || !!agentId || txStatus !== 'idle'}
                 onChange={(e) => {
                   setVisionSystemPrompt(e.target.value);
                 }}
@@ -420,7 +568,7 @@ export default function Share() {
                 type="text"
                 className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 value={bgUrl}
-                readOnly={!!sqid || !!agentId}
+                readOnly={!!sqid || !!agentId || txStatus !== 'idle'}
                 onChange={(e) => {
                   setBgUrl(e.target.value);
                 }}
@@ -462,7 +610,7 @@ export default function Share() {
             </div>
           </div>
 
-          { characterCreatorType === "Minting" && (
+          {characterCreatorType === "Minting" && (
             <div className="sm:col-span-3 max-w-md rounded-xl mt-4">
               <label className="block text-sm font-medium leading-6 text-gray-900">
                 {t("Thumbnail URL")}
@@ -472,7 +620,7 @@ export default function Share() {
                   type="text"
                   className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                   value={thumbUrl}
-                  readOnly={!!sqid || !!agentId}
+                  readOnly={!!sqid || !!agentId || txStatus !== 'idle'}
                   onChange={(e) => {
                     setBgUrl(e.target.value);
                   }}
@@ -514,7 +662,7 @@ export default function Share() {
               </div>
             </div>
           )}
-          
+
 
           <div className="sm:col-span-3 max-w-md rounded-xl mt-4">
             <label className="block text-sm font-medium leading-6 text-gray-900">
@@ -526,7 +674,7 @@ export default function Share() {
                 type="text"
                 className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 value={youtubeVideoId}
-                readOnly={!!sqid || !!agentId}
+                readOnly={!!sqid || !!agentId || txStatus !== 'idle'}
                 onChange={(e) => {
                   setYoutubeVideoId(e.target.value);
                 }}
@@ -567,7 +715,7 @@ export default function Share() {
                 type="text"
                 className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 value={vrmUrl}
-                readOnly={!!sqid || !!agentId}
+                readOnly={!!sqid || !!agentId || txStatus !== 'idle'}
                 onChange={(e) => {
                   setVrmUrl(e.target.value);
                   updateVrmAvatar(viewer, e.target.value);
@@ -624,40 +772,40 @@ export default function Share() {
               />
 
               <div className="sm:col-span-3 max-w-md rounded-xl mt-4 bg-gray-100">
-                  {vrmUrl && (
-                    <VrmDemo
-                      vrmUrl={vrmUrl}
-                      onLoaded={() => {
-                        setVrmLoaded(true);
-                        (async () => {
-                          try {
-                            const animation = await loadVRMAnimation("/animations/idle_loop.vrma");
-                            if (!animation) {
-                              console.error('loading animation failed');
-                              return;
-                            }
-                            viewer.model!.loadAnimation(animation!);
-                            requestAnimationFrame(() => {
-                              viewer.resetCamera()
-                            });
-                          } catch (e) {
-                            console.error('loading animation failed', e);
+                {vrmUrl && (
+                  <VrmDemo
+                    vrmUrl={vrmUrl}
+                    onLoaded={() => {
+                      setVrmLoaded(true);
+                      (async () => {
+                        try {
+                          const animation = await loadVRMAnimation("/animations/idle_loop.vrma");
+                          if (!animation) {
+                            console.error('loading animation failed');
+                            return;
                           }
-                        })();
-                        console.log('vrm demo loaded');
+                          viewer.model!.loadAnimation(animation!);
+                          requestAnimationFrame(() => {
+                            viewer.resetCamera()
+                          });
+                        } catch (e) {
+                          console.error('loading animation failed', e);
+                        }
+                      })();
+                      console.log('vrm demo loaded');
+                    }}
+                    onScreenShot={
+                      async (blob: Blob | null) => {
+                        if (blob)
+                          return setThumbData(blobToFile(blob!, "thumb.jpg"));
                       }}
-                      onScreenShot={
-                        async (blob: Blob | null) => {
-                          if (blob)
-                            return setThumbData(blobToFile(blob!, "thumb.jpg")); 
-                      }}
-                    />
-                  )}
+                  />
+                )}
               </div>
             </div>
           </div>
 
-          
+
           <div className="sm:col-span-3 max-w-md rounded-xl mt-4">
             <label className="block text-sm font-medium leading-6 text-gray-900">
               Animation Url
@@ -667,7 +815,7 @@ export default function Share() {
                 type="text"
                 className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 value={animationUrl}
-                readOnly={!! sqid}
+                readOnly={!!sqid || !!agentId || txStatus !== 'idle'}
                 onChange={(e) => {
                   setAnimationUrl(e.target.value);
                 }}
@@ -706,11 +854,11 @@ export default function Share() {
 
                   handleFile(file.file as File);
                 }}
-                disabled={!! sqid}
+                disabled={!!sqid}
               />
             </div>
           </div>
-         
+
 
           <div className="sm:col-span-3 max-w-md rounded-xl mt-4">
             <label className="block text-sm font-medium leading-6 text-gray-900">
@@ -721,7 +869,7 @@ export default function Share() {
                 type="text"
                 className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                 value={voiceUrl}
-                readOnly={!!sqid || !!agentId}
+                readOnly={!!sqid || !!agentId || txStatus !== 'idle'}
                 onChange={(e) => {
                   setVoiceUrl(e.target.value);
                 }}
@@ -758,10 +906,15 @@ export default function Share() {
 
                   handleFile(file.file as File);
                 }}
-                disabled={!!sqid || !!agentId}
+                disabled={!!sqid || !!agentId || txStatus !== 'idle'}
               />
             </div>
           </div>
+
+          {/* Tags Input */}
+          {characterCreatorType === "Minting" && (
+            <TagsInput tags={tags} setTags={setTags} readOnly={!!sqid || !!agentId || txStatus !== 'idle'} />
+          )}
 
           {/* Configs Button */}
           <button
@@ -771,7 +924,7 @@ export default function Share() {
           >
             {showConfigs ? 'Hide Configs' : 'Show Configs'}
           </button>
-          
+
           {showConfigs && characterCreatorType === "Minting" && (
             <div className="m:col-span-3 max-w-md mt-4">
               {Object.keys(filteredDefault).map((key) => {
@@ -786,12 +939,12 @@ export default function Share() {
                         {key} {/* Top key as the head label */}
                       </label>
                       <div className="mt-2">
-                          <input
-                            type="text"
-                            className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                            value={filteredDefault[key]}
-                            readOnly={true}
-                          />
+                        <input
+                          type="text"
+                          className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                          value={filteredDefault[key]}
+                          readOnly={true}
+                        />
                       </div>
                     </div>
                   </div>
@@ -817,9 +970,11 @@ export default function Share() {
               <button
                 onClick={mintCharacter}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-fuchsia-500 hover:bg-fuchsia-600 focus:outline-none disabled:opacity-50 disabled:hover:bg-fuchsia-500 disabled:cursor-not-allowed"
-                disabled={!vrmLoaded || showUploadLocalVrmMessage || vrmLoadingFromIndexedDb || isMinting || !isConnected}
+                disabled={!vrmLoaded || showUploadLocalVrmMessage || vrmLoadingFromIndexedDb || txStatus === 'pending' || isConfirming || !isConnected}
               >
-                {isPending ? t('Confirming...') : t("Mint Agent")}
+                {txStatus === 'pending' ? t('Waiting for Confirmation...') :
+                  isConfirming ? t('Confirming Transaction...') :
+                    t("Mint Agent")}
               </button>
             </div>
           )}
@@ -861,13 +1016,30 @@ export default function Share() {
 
           {isConfirmed && agentId && (
             <div className="sm:col-span-3 max-w-md rounded-xl mt-8">
-              <p className="text-sm">{t("Minting succesfully with agentid:")}</p>
+              <p className="text-sm">{t("Minted successfully with agentId:")}</p>
               <input
                 type="text"
                 className="inline-flex items-center px-2 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-fuchsia-600 bg-fuchsia-100 hover:bg-fuchsia-200 focus:outline-transparent focus:border-transparent border-transparent disabled:opacity-50 disabled:hover:bg-fuchsia-50 disabled:cursor-not-allowed hover:cursor-copy"
                 defaultValue={agentId}
                 readOnly
+                onClick={(e) => {
+                  // @ts-ignore
+                  navigator.clipboard.writeText(e.target.value);
+                }}
               />
+
+              {txHash && (
+                <p className="mt-2 text-sm">
+                  <a
+                    href={`${process.env.NEXT_PUBLIC_BLOCK_EXPLORER_URL}/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:underline"
+                  >
+                    View Transaction on Block Explorer
+                  </a>
+                </p>
+              )}
 
               <Link href="/">
                 <button

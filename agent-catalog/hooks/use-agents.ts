@@ -47,11 +47,11 @@ async function fetchAgents(): Promise<Agent[]> {
     const contract = new ethers.Contract(CONTRACT_ADDRESS, ERC721_ABI, provider);
 
     // Get total number of tokens
-    const totalNFTs = await contract.getTokenIdCounter();
+    const totalNFTs = await contract.tokenIdCounter();
     
     // Create batch of token IDs (in chunks to avoid too large requests)
     const tokenIds = Array.from({ length: Number(totalNFTs) }, (_, i) => i);
-    const metadataKeys = ["name", "description", "image", "vrm_url", "bg_url"];
+    const metadataKeys = ["name", "description", "image", "vrm_url", "bg_url", "tags"];
     
     // Fetch in chunks of 20 tokens at a time to avoid request size limits
     const chunkSize = 20;
@@ -75,9 +75,9 @@ async function fetchAgents(): Promise<Agent[]> {
               description: metadata[1] || "No description available",
               price: 0,
               status: "active",
-              avatar: metadata[2] || "/default-avatar.png",
+              avatar: metadata[2],
               category: "System",
-              tags: ["AI", "Optimization", "Analytics"],
+              tags: metadata[5].split(","),
               tier: { name: "Teen", level: 4, stakedAIUS: 5000 },
               vrmUrl: metadata[3],
               bgUrl: metadata[4],

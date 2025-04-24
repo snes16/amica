@@ -6,6 +6,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { useAgents } from "@/hooks/use-agents";
 
 import dynamic from "next/dynamic";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 // 👇 Dynamically import the provider to avoid server-side import trace
 const ClientQueryProvider = dynamic(() => import("./ClientQueryProvider").then(mod => mod.QueryProvider), {
@@ -17,6 +18,9 @@ function HomeContent({ backgroundColor }: { backgroundColor: any }) {
 
   return (
     <motion.main className="min-h-screen" style={{ backgroundColor }}>
+      <div className="absolute top-4 right-4 z-30">
+        <ConnectButton />
+      </div>
       <Header />
       <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-sm border-b">
         {error ? (
