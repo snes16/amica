@@ -44,6 +44,7 @@ import { isCharacterIdle, characterIdleTime, resetIdleTimer } from "@/utils/isId
 import { getOpenRouterChatResponseStream } from './openRouterChat';
 import { handleUserInput } from '../externalAPI/externalAPI';
 import { loadVRMAnimation } from '@/lib/VRMAnimation/loadVRMAnimation';
+import { ArbiusModel } from "../arbius/arbius";
 
 type Speak = {
   audioBuffer: ArrayBuffer | null;
@@ -60,6 +61,7 @@ export class Chat {
   public initialized: boolean;
 
   public amicaLife?: AmicaLife;
+  public arbiusModel?: ArbiusModel;
   public viewer?: Viewer;
   public alert?: Alert;
 
@@ -120,6 +122,7 @@ export class Chat {
 
   public initialize(
     amicaLife: AmicaLife,
+    arbiusModel: ArbiusModel,
     viewer: Viewer,
     alert: Alert,
     setChatLog: (messageLog: Message[]) => void,
@@ -131,6 +134,7 @@ export class Chat {
     setChatSpeaking: (speaking: boolean) => void,
   ) {
     this.amicaLife = amicaLife;
+    this.arbiusModel = arbiusModel;
     this.viewer = viewer;
     this.alert = alert;
     this.setChatLog = setChatLog;
@@ -720,7 +724,7 @@ export class Chat {
 
     switch (chatbotBackend) {
       case "arbius_llm":
-        return getArbiusChatResponseStream(messages);
+        return getArbiusChatResponseStream(messages, this.arbiusModel!);
       case "chatgpt":
         return getOpenAiChatResponseStream(messages);
       case "llamacpp":

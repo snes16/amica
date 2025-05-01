@@ -42,6 +42,7 @@
     "autoprefixer": "^10.4.20",
     "clsx": "^2.1.1",
     "dexie": "^4.0.8",
+    "ethers": "^6.13.5",
     "file-saver": "^2.0.5",
     "filepond": "^4.31.4",
     "filepond-plugin-file-validate-type": "^1.2.9",

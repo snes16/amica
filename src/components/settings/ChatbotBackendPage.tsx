@@ -1,9 +1,12 @@
 import { useTranslation } from 'react-i18next';
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { getWindowAI } from "window.ai";
 import { BasicPage, Link, FormRow, getLinkFromPage } from './common';
 import { updateConfig } from "@/utils/config";
 import { isTauri } from "@/utils/isTauri";
+import { AlertContext } from '@/features/alert/alertContext';
+import { useAccount } from "wagmi";
+import { Alert } from '@/features/alert/alert';
 
 const chatbotBackends = [
   {key: "echo",       label: "Echo"},
@@ -37,6 +40,8 @@ export function ChatbotBackendPage({
   setBreadcrumbs: (breadcrumbs: Link[]) => void;
 }) {
   const { t } = useTranslation();
+  const { alert } = useContext(AlertContext) ;
+  const { isConnected } = useAccount();
   const [windowAiDetected, setWindowAiDetected] = useState(false);
 
   useEffect(() => {
@@ -52,6 +57,19 @@ export function ChatbotBackendPage({
     })();
   }, []);
 
+  const handleBackendChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const selected = event.target.value;
+
+    if (selected === "arbius_llm" && !isConnected) {
+      alert?.error("You need to connect your wallet to use", "Arbius LLM.");
+      return;
+    }
+
+    setChatbotBackend(selected);
+    updateConfig("chatbot_backend", selected);
+    setSettingsUpdated(true);
+  };
+
   return (
     <BasicPage
       title={t("Chatbot Backend")}
@@ -63,11 +81,7 @@ export function ChatbotBackendPage({
             <select
               className="mt-2 block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm sm:leading-6"
               value={chatbotBackend}
-              onChange={(event: React.ChangeEvent<any>) => {
-                setChatbotBackend(event.target.value);
-                updateConfig("chatbot_backend", event.target.value);
-                setSettingsUpdated(true);
-              }}
+              onChange={handleBackendChange}
             >
               {chatbotBackends.map((engine) => (
                 <option key={engine.key} value={engine.key}>{t(engine.label)}</option>
@@ -108,3 +122,4 @@ export function ChatbotBackendPage({
     </BasicPage>
   );
 }
+
