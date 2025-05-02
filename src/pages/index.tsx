@@ -173,20 +173,18 @@ export default function Home() {
     amicaLife.checkSettingOff(!showSettings);
   }, [showSettings, amicaLife]);
 
+  const arbiusSelected = config("chatbot_backend") == "arbius_llm";
   useEffect(() => {
-    const backend = config("chatbot_backend");
-
     const setupSigner = async () => {
-      if (backend === 'arbius_llm' && isConnected && walletClient) {
+      if (arbiusSelected && isConnected && walletClient) {
       const provider = new ethers.BrowserProvider(walletClient.transport);
       const signer = await provider.getSigner();
   
       await arbiusModel.initialize(signer, setArbiusState);
       }
     };
-  
     setupSigner();
-  }, [isConnected, walletClient, setArbiusState]);
+  }, [isConnected, walletClient, setArbiusState, arbiusSelected]);
 
   useEffect(() => {
     if (muted === null) {

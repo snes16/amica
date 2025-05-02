@@ -75,6 +75,7 @@ import { ExternalAPIPage } from "./settings/ExternalAPIPage";
 import { KokoroSettingsPage } from "./settings/KokoroSettingsPage";
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount } from "wagmi";
 
 export const Settings = ({
   onClickClose,
@@ -221,6 +222,8 @@ export const Settings = ({
     [viewer]
   );
 
+  const { isConnected } = useAccount();
+
   function handleChangeBgImgFile(event: React.ChangeEvent<HTMLInputElement>) {
     const files = event.target.files;
     if (!files) return;
@@ -256,9 +259,14 @@ export const Settings = ({
   }
 
   useEffect(() => {
-    // Change the chatbot to 'llamacpp' if Amica Life is enabled and previous chatbot was 'echo'
-    if (amicaLifeEnabled && ["echo", "moshi"].includes(config("chatbot_backend"))) {
+    // Set the amica life to unable if the chatbot is whether `echo` or `arbius_llm` or `moshi`
+    if (amicaLifeEnabled && ["echo", "moshi", "arbius_llm"].includes(config("chatbot_backend"))) {
       setAmicaLifeEnabled(false);
+    }
+
+    // Set the chatbot backend to `openai` if the wallet is not connected and the chatbot backend is `arbius_llm`
+    if (["arbius_llm"].includes(config("chatbot_backend")) && !isConnected) {
+      setChatbotBackend("openai");
     }
   }, [chatbotBackend, amicaLifeEnabled]);
 
