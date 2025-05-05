@@ -261,6 +261,7 @@ export const Settings = ({
   useEffect(() => {
     // Set the amica life to unable if the chatbot is whether `echo` or `arbius_llm` or `moshi`
     if (amicaLifeEnabled && ["echo", "moshi", "arbius_llm"].includes(config("chatbot_backend"))) {
+      updateConfig("amica_life_enabled", "false");
       setAmicaLifeEnabled(false);
     }
 
