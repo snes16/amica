@@ -68,6 +68,7 @@
     "three": "^0.154.0",
     "vaul": "^0.9.6",
     "wagmi": "^2.14.13",
+    "wavefile": "^11.0.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
