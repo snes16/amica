@@ -14,6 +14,13 @@ export interface Agent {
     stakedAIUS: number
   }
   vrmUrl: string,
-  bgUrl: string
+  bgUrl: string,
+  config: {
+    chatbotBackend: string
+    ttsBackend: string
+    sttBackend: string
+    visionBackend: string
+    amicaLifeBackend: string
+  }
 }
 

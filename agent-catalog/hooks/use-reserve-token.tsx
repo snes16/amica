@@ -1,4 +1,4 @@
-import { useAccount, useReadContract, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
+import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { parseEther } from "viem";
 import { ERC721_ABI } from "@/utils/abi/erc721";
 

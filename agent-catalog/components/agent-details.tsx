@@ -15,11 +15,12 @@ import { useEffect, useState } from "react";
 import { useTokens } from "@/hooks/use-token";
 import { AlertTriangle } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useReserveToken } from "@/hooks/useReserveToken";
+import { useReserveToken } from "@/hooks/use-reserve-token";
 import { useAccount, useReadContract } from "wagmi";
 import { ERC721_ABI } from "@/utils/abi/erc721";
 import { formatUnits } from "ethers";
 import { ERC20_ABI } from "@/utils/abi/erc20";
+import { AgentVrmDiagnosis } from "./agent-diagnosis";
 
 interface AgentDetailsProps {
   agent: Agent;
@@ -29,6 +30,7 @@ const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 
 export function AgentDetails({ agent }: AgentDetailsProps) {
   const [vrmLoaded, setVrmLoaded] = useState(false);
+  const [vrmError, setVrmError] = useState(false);
   const { stats, priceHistory, tokenAddress, loading, error } = useTokens(Number(agent.id));
   const [reserveAmount, setReserveAmount] = useState("");
   const { isConnected, address } = useAccount();
@@ -113,9 +115,11 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
               vrmUrl={agent.vrmUrl}
               bgUrl={agent.bgUrl}
               onLoaded={() => setVrmLoaded(true)}
+              onError={() => setVrmError(true)}
             />
 
-            {!isPairNotCreated && (<PriceChart priceHistory={isPairNotCreated ? [] : priceHistory} />)}
+          {!isPairNotCreated && (<PriceChart priceHistory={isPairNotCreated ? [] : priceHistory} />)}
+          <AgentVrmDiagnosis vrmLoaded={vrmLoaded} vrmError={vrmError} agentId={agent.id} agentConfig={agent.config}/>
           </div>
           <div className="space-y-8">
             <div className="flex justify-center space-x-4 mb-8">

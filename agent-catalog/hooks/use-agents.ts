@@ -51,7 +51,7 @@ async function fetchAgents(): Promise<Agent[]> {
     
     // Create batch of token IDs (in chunks to avoid too large requests)
     const tokenIds = Array.from({ length: Number(totalNFTs) }, (_, i) => i);
-    const metadataKeys = ["name", "description", "image", "vrm_url", "bg_url", "tags"];
+    const metadataKeys = ["name", "description", "image", "vrm_url", "bg_url", "tags", "chatbot_backend", "tts_backend", "stt_backend", "vision_backend"];
     
     // Fetch in chunks of 20 tokens at a time to avoid request size limits
     const chunkSize = 20;
@@ -81,6 +81,13 @@ async function fetchAgents(): Promise<Agent[]> {
               tier: { name: "Teen", level: 4, stakedAIUS: 5000 },
               vrmUrl: metadata[3],
               bgUrl: metadata[4],
+              config: {
+                chatbotBackend: metadata[6],
+                ttsBackend: metadata[7],
+                sttBackend: metadata[8],
+                visionBackend: metadata[9],
+                amicaLifeBackend: "amicaLife", 
+              }
             };
           })
           .catch(err => {
