@@ -1,4 +1,5 @@
 import { Orbitron, Noto_Sans_JP, Roboto_Mono } from "next/font/google"
+import './globals.css'
 
 const orbitron = Orbitron({
   subsets: ["latin"],
@@ -22,11 +23,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${orbitron.variable} ${noto.variable} ${robotoMono.variable}`}>
-      <body>{children}</body>
+      <body>
+          {children}
+      </body>
     </html>
   )
 }
 
 
 
-import './globals.css'
