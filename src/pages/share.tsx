@@ -1,4 +1,3 @@
-import { createHash } from 'crypto';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useContext, useState, useEffect, useRef } from 'react';
@@ -10,6 +9,8 @@ import { FilePond, registerPlugin } from 'react-filepond';
 import { ViewerContext } from "@/features/vrmViewer/viewerContext";
 import VrmDemo from "@/components/vrmDemo";
 import { loadVRMAnimation } from "@/lib/VRMAnimation/loadVRMAnimation";
+import { hashFile, blobToFile } from "@/utils/fileUtils";
+import { vrmDetector, updateVrmAvatar } from '@/utils/vrmUtils';
 
 import FilePondPluginImagePreview from 'filepond-plugin-image-preview';
 import FilePondPluginFileValidateType from 'filepond-plugin-file-validate-type';
@@ -26,51 +27,13 @@ import { useAccount, useReadContract, useWaitForTransactionReceipt, useWriteCont
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 import { abi } from '../utils/abi'
-import { ethers } from 'ethers';
 import { id } from 'ethers';
 import { TagsInput } from '@/components/tagsInput';
-
 
 registerPlugin(
   FilePondPluginImagePreview,
   FilePondPluginFileValidateType,
 );
-
-const blobToFile = (blob: Blob, fileName: string): File => {
-  return new File([blob], fileName, { type: blob.type });
-};
-
-
-async function hashFile(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  const hashValue = createHash('sha256')
-    .update(Buffer.from(buffer))
-    .digest('hex');
-  return hashValue;
-}
-
-async function updateVrmAvatar(viewer: any, url: string) {
-  try {
-    await viewer.loadVrm(url);
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-function vrmDetector(source: File, type: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    console.log(source);
-    (async () => {
-      const ab = await source.arrayBuffer();
-      const buf = Buffer.from(ab);
-      if (buf.slice(0, 4).toString() === "glTF") {
-        resolve("model/gltf-binary");
-      } else {
-        resolve("unknown");
-      }
-    })();
-  })
-}
 
 export default function Share() {
   const { t } = useTranslation();
@@ -119,7 +82,7 @@ export default function Share() {
   const [characterCreatorType, setCharacterCreatorType] = useState("Sharing");
 
   // Contract address and ABI for fetching metadata
-  const CONTRACT_ADDRESS = "0x030960cb9C799b71CB9E3f34B12B110037Dc7fc5";
+  const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS as `0x${string}`;
   const wagmiContractConfig = {
     address: CONTRACT_ADDRESS,
     abi: [
@@ -157,10 +120,16 @@ export default function Share() {
     "bg_url", "vrm_url", "youtube_videoid", "system_prompt",
     "vision_system_prompt", "name"
   ];
+  const lateAssignKeys = [
+    "name", "description", "image", "bg_url", "youtube_videoid",
+    "vrm_url", "animation_url", "system_prompt",
+    "vision_system_prompt", "tags"
+  ];
 
   // State to manage the visibility of filteredDefaults
   const [showConfigs, setShowConfigs] = useState(false);
   const [filteredDefault, setFilterDefault] = useState<Record<string, any>>({});
+  
 
   const handleConfigToggle = () => {
     const filteredDefaults = Object.entries(defaults)
@@ -343,41 +312,40 @@ export default function Share() {
     register();
   }
 
-  // Mint character NFT
   const [isMinting, setIsMinting] = useState(false);
   async function mintCharacter() {
-    try {
-      setIsMinting(true);
-      setTxStatus('pending');
-      setTxError(null);
+    setIsMinting(true);
+    setTxStatus('pending');
+    setTxError(null);
 
-      // Prepare filtered defaults
-      const filteredDefaults = Object.entries(defaults)
-        .filter(([key]) => !filterKeys.includes(key))
-        .reduce((acc: Record<string, any>, [key, value]) => {
-          acc[key] = config(key);
-          return acc;
-        }, {});
+    try {
+      // Filter and prepare config-based defaults
+      const filteredDefaults = Object.fromEntries(
+        Object.entries(defaults)
+          .filter(([key]) => !filterKeys.includes(key))
+          .map(([key]) => [key, config(key)])
+      );
 
       setFilterDefault(filteredDefaults);
 
-      // Prepare keys and values for contract
-      let keysList = Object.keys(filteredDefaults);
-      let valuesList = Object.values(filteredDefaults);
+      const configKeys = Object.keys(filteredDefaults);
+      const configValues = Object.values(filteredDefaults);
 
-      const lateAssignKeys = ["name", "description", "image", "bg_url", "youtube_videoid", "vrm_url", "animation_url", "system_prompt", "vision_system_prompt", "tags"];
-      const lateAssignValues = [name, description, thumbUrl, bgUrl, youtubeVideoId, vrmUrl, animationUrl, systemPrompt, visionSystemPrompt, tags.join(',')];
+      const lateAssignValues = [
+        name, description, thumbUrl, bgUrl, youtubeVideoId,
+        vrmUrl, animationUrl, systemPrompt, visionSystemPrompt,
+        tags.join(',')
+      ];
 
-      // Combine all keys and values
-      keysList = [...keysList, ...lateAssignKeys];
-      valuesList = [...valuesList, ...lateAssignValues];
+      const keysList = [...configKeys, ...lateAssignKeys];
+      const valuesList = [...configValues, ...lateAssignValues];
 
-      console.log("Minting with keys:", keysList);
-      console.log("Minting with values:", valuesList);
+      // Validate inputs before calling the contract
+      if (keysList.length !== valuesList.length) {
+        throw new Error("Mismatch between keys and values.");
+      }
 
-      // TODO: Check if we're on the correct network
-
-      // Execute the transaction
+      // Call smart contract
       writeContract({
         address: CONTRACT_ADDRESS,
         abi,
@@ -389,10 +357,10 @@ export default function Share() {
       console.error("Minting failed:", error);
       setTxStatus('error');
       setTxError(error instanceof Error ? error.message : 'Unknown error');
+    } finally {
       setIsMinting(false);
     }
   }
-
 
   const router = useRouter();
 
