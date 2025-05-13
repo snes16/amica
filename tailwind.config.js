@@ -23,9 +23,11 @@ module.exports = {
         M_PLUS_2: ["Montserrat", "M_PLUS_2", "sans-serif"],
         Montserrat: ["Montserrat", "sans-serif"],
       },
+      backgroundImage: {
+        "buy-hover":
+          "linear-gradient(95.28deg, #4A28FF 17.25%, #92BDFF 123.27%)",
+      },
     },
   },
-  plugins: [
-    require('@tailwindcss/forms'),
-  ],
+  plugins: [require("@tailwindcss/forms")],
 };

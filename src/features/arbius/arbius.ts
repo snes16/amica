@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+import { ethers, parseUnits } from "ethers";
 import { pinFileToIPFS, cidify } from "@/utils/ipfs";
 import ArbiusAbi from "./abis/arbius.json";
 import ERC20Abi from "./abis/erc20.json";
@@ -48,19 +48,19 @@ export class ArbiusModel {
   }
 
   private async bootupChecks() {
-    const token = new ethers.Contract(tokenAddress, ERC20Abi, this.signer);
+    const token = new ethers.Contract(tokenAddress, ERC20Abi.abi, this.signer);
 
-    console.log(`Wallet address: ${this.address}`);
     const balance = await token.balanceOf(this.address);
-    console.log(`Arbius balance: ${ethers.formatEther(balance)}`);
   
     const allowance = await token.allowance(this.address, arbiusAddress);
-    console.log('Allowance:', ethers.formatEther(allowance));
+    console.log('AIUS Token Allowance:', ethers.formatEther(allowance));
     if (allowance < balance) {
       console.log('Approving Arbius to spend tokens');
-      const tx = await token.approve(arbiusAddress, ethers.MaxUint256);
+      // Convert 10 AIUS to wei
+      const amountToApprove = parseUnits('10', 18);
+      const tx = await token.approve(arbiusAddress,amountToApprove);
       const receipt = await tx.wait();
-      console.log('tx:', receipt.transactionHash);
+      console.log('tx:', receipt.hash);
     }
   }
 
@@ -131,7 +131,7 @@ export class ArbiusModel {
   
       return text;
     } catch (err: any) {
-      console.error("❌ Failed to get model response:", err);
+      console.error("Failed to get model response:", err);
       this.updateState({ isProcessing: false, error: err.message });
     }
   }
@@ -150,7 +150,7 @@ export class ArbiusModel {
 
       const model = await contract.models(modelId);
       const fee = model[0];
-      console.log("💰 Model Fee:", ethers.formatEther(fee));
+      console.log("Model Fee:", ethers.formatEther(fee));
 
       const tx = await contract.submitTask(0, this.address, modelId, fee, bytes);
 
@@ -163,10 +163,14 @@ export class ArbiusModel {
         `task-${taskId}.json`
       );
 
-      console.log(`📦 Task input pinned to IPFS with CID: ${cid}`);
+      console.log(`Task input pinned to IPFS with CID: ${cid}`);
       return taskId;
-    } catch (err) {
-      console.error("❌ Failed to submit task", err);
+    } catch (err: any) {
+      if (err.code === 'ACTION_REJECTED') {
+        console.warn("User rejected the transaction.");
+      } else {
+      console.error("Failed to submit task", err);
+      }
     }
   }
 
@@ -177,7 +181,7 @@ export class ArbiusModel {
   
     return new Promise<string>((resolve, reject) => {
       const listener = async (addr: string, submitTaskId: string) => {
-        console.log(`🔔 Event: Solution ${submitTaskId} solved by: ${addr}`);
+        console.log(`Event: Solution ${submitTaskId} solved by: ${addr}`);
   
         if (submitTaskId !== taskId) return;
   
@@ -219,7 +223,7 @@ export class ArbiusModel {
         ? fullText.split("</think>").pop()?.trim()
         : fullText;
     } catch (err) {
-      console.error("❌ Error getting task result:", err);
+      console.error("Error getting task result:", err);
     }
   }
 }

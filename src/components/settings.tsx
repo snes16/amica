@@ -261,13 +261,16 @@ export const Settings = ({
   useEffect(() => {
     // Set the amica life to unable if the chatbot is whether `echo` or `arbius_llm` or `moshi`
     if (amicaLifeEnabled && ["echo", "moshi", "arbius_llm"].includes(config("chatbot_backend"))) {
-      updateConfig("amica_life_enabled", "false");
       setAmicaLifeEnabled(false);
+      updateConfig("amica_life_enabled", "false");
+      setSettingsUpdated(true);
     }
 
-    // Set the chatbot backend to `openai` if the wallet is not connected and the chatbot backend is `arbius_llm`
+    // Set the chatbot backend to `echo` if the wallet is not connected and the chatbot backend is `arbius_llm`
     if (["arbius_llm"].includes(config("chatbot_backend")) && !isConnected) {
-      setChatbotBackend("openai");
+      setChatbotBackend("echo");
+      updateConfig("chatbot_backend", "echo");
+      setSettingsUpdated(true);
     }
   }, [chatbotBackend, amicaLifeEnabled]);
 
