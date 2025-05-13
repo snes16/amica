@@ -1,5 +1,4 @@
 import { handleConfig, serverConfig } from "@/features/externalAPI/externalAPI";
-import { InsufficientFundsError } from "viem";
 
 export const defaults = {
   // AllTalk TTS specific settings

@@ -166,7 +166,7 @@ export default function Home() {
 
   const [isVRHeadset, setIsVRHeadset] = useState(false);
 
-  const { isConnected, address } = useAccount();
+  const { isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const [signer, setSigner] = useState<ethers.JsonRpcSigner | undefined>(undefined);
 
