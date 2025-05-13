@@ -31,6 +31,7 @@ export const defaults = {
   voice_url: process.env.NEXT_PUBLIC_VOICE_URL ?? '',
   chatbot_backend: process.env.NEXT_PUBLIC_CHATBOT_BACKEND ?? 'openai',
   arbius_llm_model_id: process.env.NEXT_PUBLIC_ARBIUS_LLM_MODEL_ID ?? 'default',
+  insufficient_aius: 'false',
   openai_apikey: process.env.NEXT_PUBLIC_OPENAI_APIKEY ?? 'default',
   openai_url: process.env.NEXT_PUBLIC_OPENAI_URL ?? 'https://i-love-amica.com',
   openai_model: process.env.NEXT_PUBLIC_OPENAI_MODEL ?? 'mlabonne/NeuralDaredevil-8B-abliterated',

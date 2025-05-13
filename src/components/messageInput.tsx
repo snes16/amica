@@ -268,7 +268,7 @@ export default function MessageInput({
               iconName="24/Send"
               className="ml-2 bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
               isProcessing={isChatProcessing || transcriber.isBusy}
-              disabled={isChatProcessing || !userMessage || transcriber.isModelLoading || config("chatbot_backend") === "moshi"}
+              disabled={isChatProcessing || !userMessage || transcriber.isModelLoading || config("chatbot_backend") === "moshi" || config("insufficient_aius") === "true"}
               onClick={clickedSendButton}
             />
           </div>

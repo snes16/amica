@@ -168,6 +168,7 @@ export default function Home() {
 
   const { isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const [signer, setSigner] = useState<ethers.JsonRpcSigner | undefined>(undefined);
 
   useEffect(() => {
     amicaLife.checkSettingOff(!showSettings);
@@ -181,6 +182,7 @@ export default function Home() {
       const signer = await provider.getSigner();
   
       await arbiusModel.initialize(signer, setArbiusState);
+      setSigner(signer);
       }
     };
     setupSigner();
@@ -319,7 +321,6 @@ export default function Home() {
       console.error(err);
     }
   }
-
 
   useEffect(() => {
     bot.initialize(
@@ -566,8 +567,7 @@ export default function Home() {
         </div>    
       </div>
 
-      
-      {config("chatbot_backend") == "arbius_llm" && <ArbiusModelOperation arbiusState={arbiusState} /> }
+      {config("chatbot_backend") == "arbius_llm" && <ArbiusModelOperation arbiusState={arbiusState} signer={signer}/> }
 
       {showChatLog && <ChatLog messages={chatLog} />}
 
