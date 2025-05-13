@@ -18,7 +18,7 @@ import {
 const config = getDefaultConfig({
   appName: 'arbius.heyamica.com',
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
-  chains: [sepolia, arbitrumSepolia],
+  chains: [sepolia],
   ssr: true, // If your dApp uses server side rendering (SSR)
 });
 

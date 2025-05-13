@@ -70,7 +70,7 @@ const montserrat = Montserrat({
 });
 
 // Contract address and ABI for fetching metadata
-const CONTRACT_ADDRESS = "0x1b0cA51Ed9B92140e92E31C47476930Fbbee7042";
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS as `0x${string}`;
 
 export default function Agent() {
   const { t, i18n } = useTranslation();

@@ -44,6 +44,7 @@ export function AmicaLifePage({
     const { t } = useTranslation();
     const { chat: bot } = useContext(ChatContext);
     const { amicaLife } = useContext(AmicaLifeContext);
+    const [fileSelected, setFileSelected] = useState<string | "No file selected">("No file selected");
 
     useEffect(() => {
         amicaLife.processingIdle();
@@ -65,17 +66,18 @@ export function AmicaLifePage({
                         if (parsedContent.idleTextPrompt) {
                             amicaLife.loadIdleTextPrompt(parsedContent.idleTextPrompt);
                             console.log("idleTextPrompt", parsedContent.idleTextPrompt);
+
+                            const fileName = file.name;
+                            setFileSelected(fileName);
+                            setIdleTextPrompt(JSON.stringify(parsedContent));
+                            updateConfig("idle_text_prompt", JSON.stringify(parsedContent));
+                            setSettingsUpdated(true);
                         } else {
                             console.error("Wrong json format");
                         }
                     }
                 };
                 reader.readAsText(file);
-
-                const fileName = file.name;
-                setIdleTextPrompt(fileName);
-                updateConfig("idle_text_prompt", fileName);
-                setSettingsUpdated(true);
             }
         }, [bot, idleTextPrompt]
     );
@@ -114,7 +116,7 @@ export function AmicaLifePage({
                                         onClick={handleClickOpenJsonFile}
                                     ></IconButton>
                                     <TextInput
-                                        value={idleTextPrompt}
+                                        value={fileSelected}
                                         readOnly={true}
                                     />
                                     <input
