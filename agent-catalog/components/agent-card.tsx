@@ -15,7 +15,7 @@ interface AgentCardProps {
   index: number
 }
 
-const AMICA_URL = "https://amica-git-agent-framework-heyamica.vercel.app/"
+const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 
 export function AgentCard({ agent, index }: AgentCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
