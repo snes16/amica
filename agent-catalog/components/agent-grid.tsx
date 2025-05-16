@@ -26,14 +26,24 @@ const categories = [
 
 export function AgentGrid({ agents }: AgentGridProps) {
   const [searchQuery, setSearchQuery] = useState("")
+  const [sortOption, setSortOption] = useState("all")
 
   // Filter agents based on search query (case-insensitive)
   const filteredAgents = useMemo(() => {
-    return agents.filter(agent =>
+    let result = agents.filter(agent =>
       agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       agent.description?.toLowerCase().includes(searchQuery.toLowerCase())
     )
-  }, [searchQuery, agents])
+
+    if (sortOption === "price-asc") {
+      result = [...result].sort((a, b) => (a.price || 0) - (b.price || 0))
+    } else if (sortOption === "price-desc") {
+      result = [...result].sort((a, b) => (b.price || 0) - (a.price || 0))
+    }
+
+    return result
+  }, [searchQuery, agents, sortOption])
+
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -49,7 +59,9 @@ export function AgentGrid({ agents }: AgentGridProps) {
             />
           </div>
           <div className="flex flex-col sm:flex-row gap-4">
-            <Select defaultValue="market-cap">
+            
+            {/* TEMP Disabled: Sort by market cap */}
+            {/* <Select defaultValue="market-cap">
               <SelectTrigger className="w-full sm:w-[180px] border-2 bg-white">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
@@ -58,18 +70,20 @@ export function AgentGrid({ agents }: AgentGridProps) {
                 <SelectItem value="price-asc">Price: Low to High</SelectItem>
                 <SelectItem value="price-desc">Price: High to Low</SelectItem>
               </SelectContent>
-            </Select>
-            <Select defaultValue="all">
+            </Select> */}
+
+            {/* Sort by Price */}
+            <Select value={sortOption} onValueChange={(value) => setSortOption(value)}>
               <SelectTrigger className="w-full sm:w-[180px] border-2 bg-white">
-                <SelectValue placeholder="Price Range" />
+                <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent className="bg-white border-2 border-gray-200">
-                <SelectItem value="all">All Prices</SelectItem>
-                <SelectItem value="0-1000">0 - 1,000 AIUS</SelectItem>
-                <SelectItem value="1000-5000">1,000 - 5,000 AIUS</SelectItem>
-                <SelectItem value="5000+">5,000+ AIUS</SelectItem>
+                <SelectItem value="all">Sort by Price</SelectItem>
+                <SelectItem value="price-asc">Price: Low to High</SelectItem>
+                <SelectItem value="price-desc">Price: High to Low</SelectItem>
               </SelectContent>
             </Select>
+
           </div>
         </div>
 

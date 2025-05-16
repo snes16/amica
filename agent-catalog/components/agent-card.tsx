@@ -18,16 +18,6 @@ interface AgentCardProps {
 const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 
 export function AgentCard({ agent, index }: AgentCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const descriptionRef = useRef<HTMLParagraphElement>(null)
-  const [needsExpand, setNeedsExpand] = useState(false)
-
-  useEffect(() => {
-    if (descriptionRef.current) {
-      const isOverflowing = descriptionRef.current.scrollHeight > descriptionRef.current.clientHeight
-      setNeedsExpand(isOverflowing)
-    }
-  }, [descriptionRef])
 
   return (
     <motion.div
@@ -71,21 +61,11 @@ export function AgentCard({ agent, index }: AgentCardProps) {
                 Tier: {agent.tier.name} (Level {agent.tier.level})
               </p>
             </div>
-            <div className="relative">
-              <p
-                ref={descriptionRef}
-                className={`text-sm text-blue-100/70 font-roboto-mono ${!isExpanded ? "line-clamp-3" : ""}`}
-              >
+            {/* Scrollable Description */}
+            <div className="max-h-24 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar]:h-4/6 [&::-webkit-scrollbar-track]:bg-neon-blue/25 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
+              <p className="text-sm text-blue-100/70 font-roboto-mono whitespace-pre-line">
                 {agent.description}
               </p>
-              {needsExpand && !isExpanded && (
-                <button
-                  onClick={() => setIsExpanded(true)}
-                  className="absolute bottom-0 right-0 text-xs text-neon-blue hover:text-neon-pink transition-colors bg-scifi-dark pl-2"
-                >
-                  Read more
-                </button>
-              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
