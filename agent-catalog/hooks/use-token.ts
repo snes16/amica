@@ -75,6 +75,9 @@ async function fetchTokenStats(tokenId: number) {
     const [erc20Token, totalSupply, reserve0, reserve1, pairAddress] =
       await nftContract.getTokenData(tokenId);
 
+    // used for swapping
+    // console.log(erc20Token)
+
     if (!erc20Token || !pairAddress)
       throw new Error("Invalid token data received.");
 

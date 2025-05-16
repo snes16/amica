@@ -21,6 +21,7 @@ import { ERC721_ABI } from "@/utils/abi/erc721";
 import { formatUnits } from "ethers";
 import { ERC20_ABI } from "@/utils/abi/erc20";
 import { AgentVrmDiagnosis } from "./agent-diagnosis";
+import { useRouter } from 'next/navigation';
 
 interface AgentDetailsProps {
   agent: Agent;
@@ -31,6 +32,7 @@ const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 export function AgentDetails({ agent }: AgentDetailsProps) {
   const [vrmLoaded, setVrmLoaded] = useState(false);
   const [vrmError, setVrmError] = useState(false);
+  const router = useRouter();
   const { stats, priceHistory, tokenAddress, loading, error } = useTokens(Number(agent.id));
   const [reserveAmount, setReserveAmount] = useState("");
   const { isConnected, address } = useAccount();
@@ -45,28 +47,40 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
 
   const [aius, owed] = (data as [bigint, bigint]) || [BigInt(0), BigInt(0)];
 
-  const { data : aiusAmount, refetch: refetchAiusAmount} = useReadContract({
+  const { data: aiusAmount, refetch: refetchAiusAmount } = useReadContract({
     address: process.env.NEXT_PUBLIC_AIUS_CONTRACT_ADDRESS! as `0x${string}`,
     abi: ERC20_ABI,
     functionName: "balanceOf",
     args: [address],
     query: { enabled: isConnected && !!address },
   });
-  
+
 
   const formattedAius = aius ? formatUnits(aius, 18) : "0.0";
   const formattedOwed = owed ? formatUnits(owed, 18) : "0.0";
 
   const isPairNotCreated = error == "Pair not created";
 
+  // Update the latest price of token
+  useEffect(() => {
+    if (stats?.price && stats.price !== agent.price) {
+      const updatedAgent = { ...agent, price: stats.price };
+      localStorage.setItem("agent", JSON.stringify(updatedAgent));
+    }
+  }, [stats?.price]);
+
+  // refetch aius and reserve amount after reserve, reload page if pair created
   useEffect(() => {
     if (reserveSuccess) {
       refetchAiusData();
       refetchAiusAmount();
       setReserveAmount("");
+      if (aius == BigInt(100)) {
+        router.refresh();
+      }
     }
   }, [refetchAiusData, reserveSuccess, refetchAiusAmount]);
-  
+
   if (loading) {
     return (
       <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-sm border-b">
@@ -117,8 +131,8 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
               onError={() => setVrmError(true)}
             />
 
-          {!isPairNotCreated && (<PriceChart priceHistory={isPairNotCreated ? [] : priceHistory} />)}
-          <AgentVrmDiagnosis vrmLoaded={vrmLoaded} vrmError={vrmError} agentId={agent.id} agentConfig={agent.config}/>
+            {!isPairNotCreated && (<PriceChart priceHistory={isPairNotCreated ? [] : priceHistory} />)}
+            <AgentVrmDiagnosis vrmLoaded={vrmLoaded} vrmError={vrmError} agentId={agent.id} agentConfig={agent.config} />
           </div>
           <div className="space-y-8">
             <div className="flex justify-center space-x-4 mb-8">
@@ -163,7 +177,7 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
                             if (!isNaN(inputValue) && inputValue <= maxLimit) {
                               setReserveAmount(e.target.value);
                             } else if (e.target.value === "") {
-                              setReserveAmount(""); 
+                              setReserveAmount("");
                             }
                           }}
                           placeholder={`${100 - Number(formattedAius)} AIUS before added liquidity`}
@@ -216,7 +230,8 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
             </div>
             <AgentDescription description={agent.description} />
             <SocialMediaButtons />
-            <AgentTags tags={agent.tags} />
+            {agent.tags.length > 1 && 
+            <AgentTags tags={agent.tags} />}
             <AgentTiers currentTier={agent.tier} />
             <Integrations />
           </div>
