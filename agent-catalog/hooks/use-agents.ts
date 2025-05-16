@@ -65,99 +65,101 @@ async function fetchAgents(): Promise<Agent[]> {
   const fetchedAgents: Agent[] = [];
 
   for (let i = 0; i < tokenIds.length; i += chunkSize) {
-    await delay(300);
-    
-    const chunk = tokenIds.slice(i, i + chunkSize);
+  await delay(300);
+  const chunk = tokenIds.slice(i, i + chunkSize);
 
-    const results = await Promise.all(
-      chunk.map(async (tokenId) => {
-        try {
-          const [metadata, tokenData] = await Promise.all([
-            contract.getMetadata(tokenId, metadataKeys),
-            contract.getTokenData(tokenId),
-          ]);
+  const results = await Promise.all(
+    chunk.map(async (tokenId) => {
+      let metadata: string[] = [];
+      let tokenData: any[] = [];  
+      let pairNotCreated: boolean = false;
 
-          if (!metadata?.length || metadata[0] === "0x") return null;
+      try {
+        metadata = await contract.getMetadata(tokenId, metadataKeys);
+      } catch (err) {
+        console.warn(`Metadata fetch failed for token ${tokenId}:`, err);
+      }
 
-          const [erc20Token, , reserve0, reserve1, pairAddress] = tokenData;
-          let price = 0;
-
-          if (erc20Token && pairAddress) {
-            try {
-              const pairContract = new ethers.Contract(
-                pairAddress,
-                UNIPAIR_ABI,
-                provider,
-              );
-              const token0 = await pairContract.token0();
-
-              const [aiusReserve, tokenReserve] =
-                token0 === erc20Token
-                  ? [reserve1, reserve0]
-                  : [reserve0, reserve1];
-
-              const aius = parseFloat(ethers.formatUnits(aiusReserve, 18));
-              const tokens = parseFloat(ethers.formatUnits(tokenReserve, 18));
-              if (tokens > 0) price = aius / tokens;
-            } catch (innerError: any) {
-              const reason = innerError?.revert?.args?.[0] ?? innerError?.reason ?? "";
-              if (reason !== "Pair not created") {
-                console.error(
-                  `Error fetching pair data for token ${tokenId}:`,
-                  innerError,
-                );
-              }
-              // price remains 0
-            }
-          }
-
-          const [
-            name,
-            description,
-            image,
-            vrmUrl,
-            bgUrl,
-            tags,
-            chatbotBackend,
-            ttsBackend,
-            sttBackend,
-            visionBackend,
-          ] = metadata;
-
-          return {
-            id: `${tokenId}`,
-            name: name || "Unknown",
-            token: "AINFT",
-            description: description || "No description available",
-            price,
-            status: "active",
-            avatar: image,
-            category: "System",
-            tags: tags?.split(",") || [],
-            tier: { name: "Teen", level: 4, stakedAIUS: 5000 },
-            vrmUrl,
-            bgUrl,
-            config: {
-              chatbotBackend,
-              ttsBackend,
-              sttBackend,
-              visionBackend,
-              amicaLifeBackend: "amicaLife",
-            },
-          } satisfies Agent;
-        } catch (err: any) {
-          const reason = err?.revert?.args?.[0] ?? err?.reason ?? "";
-          if (reason !== "Pair not created") {
-            console.error(`Token ${tokenId} error:`, err);
-          }
-          
-          return null;
+      try {
+        tokenData = await contract.getTokenData(tokenId);
+      } catch (err: any) {
+        const reason = err?.revert?.args?.[0] ?? err?.reason ?? "";
+        if (reason === "Pair not created") { pairNotCreated = true; }
+        else {
+          console.warn(`TokenData fetch failed for token ${tokenId}:`, err);
         }
-      }),
-    );
+      }
 
-    fetchedAgents.push(...(results.filter(Boolean) as Agent[]));
-  }
+      if (!metadata?.length || metadata[0] === "0x") return null;
+
+      // Destructure safely if tokenData is present
+      let price = 0;
+      if (tokenData.length > 4 && !pairNotCreated) {
+        const [erc20Token, , reserve0, reserve1, pairAddress] = tokenData;
+
+        if (erc20Token && pairAddress) {
+          try {
+            const pairContract = new ethers.Contract(
+              pairAddress,
+              UNIPAIR_ABI,
+              provider,
+            );
+            const token0 = await pairContract.token0();
+
+            const [aiusReserve, tokenReserve] =
+              token0 === erc20Token
+                ? [reserve1, reserve0]
+                : [reserve0, reserve1];
+
+            const aius = parseFloat(ethers.formatUnits(aiusReserve, 18));
+            const tokens = parseFloat(ethers.formatUnits(tokenReserve, 18));
+            if (tokens > 0) price = aius / tokens;
+          } catch (innerError: any) {
+            console.error(`Error fetching pair data for token ${tokenId}:`,innerError,);
+          }
+        }
+      }
+
+      const [
+        name,
+        description,
+        image,
+        vrmUrl,
+        bgUrl,
+        tags,
+        chatbotBackend,
+        ttsBackend,
+        sttBackend,
+        visionBackend,
+      ] = metadata;
+
+      return {
+        id: `${tokenId}`,
+        name: name || "Unknown",
+        token: "AINFT",
+        description: description || "No description available",
+        price,
+        status: "active",
+        avatar: image,
+        category: "System",
+        tags: tags?.split(",") || [],
+        tier: { name: "Teen", level: 4, stakedAIUS: 5000 },
+        vrmUrl,
+        bgUrl,
+        config: {
+          chatbotBackend,
+          ttsBackend,
+          sttBackend,
+          visionBackend,
+          amicaLifeBackend: "amicaLife",
+        },
+      } satisfies Agent;
+    }),
+  );
+
+  fetchedAgents.push(...(results.filter(Boolean) as Agent[]));
+}
+
 
   const cachedAgents = cachedData ? (JSON.parse(cachedData) as Agent[]) : [];
   const updatedAgents = mergeAgents(cachedAgents, fetchedAgents);
