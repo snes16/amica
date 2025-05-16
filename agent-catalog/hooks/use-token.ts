@@ -57,7 +57,7 @@ export function useTokens(tokenId: number) {
     priceHistory,
     tokenAddress,
     loading,
-    error: error as Error | null,
+    error: error as Error | null | "Pair not created",
   };
 }
 
@@ -215,7 +215,14 @@ async function fetchTokenStats(tokenId: number) {
       tokenAddress: erc20Token,
     };
   } catch (error) {
-    console.error("Error fetching token stats:", error);
-    throw error;
+    const reason = (error as any)?.revert?.args?.[0] ?? (error as any)?.reason;
+
+    if (reason === "Pair not created") {
+      console.warn("Pair not created");
+      throw "Pair not created";
+    } else {
+      console.error("Error fetching token stats:", error);
+      throw error;
+    }
   }
 }

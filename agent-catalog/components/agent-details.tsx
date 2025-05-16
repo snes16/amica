@@ -57,8 +57,7 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
   const formattedAius = aius ? formatUnits(aius, 18) : "0.0";
   const formattedOwed = owed ? formatUnits(owed, 18) : "0.0";
 
-
-  const isPairNotCreated = error?.message.includes("Pair not created");
+  const isPairNotCreated = error == "Pair not created";
 
   useEffect(() => {
     if (reserveSuccess) {
@@ -100,7 +99,7 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
         </p>
 
         {isPairNotCreated && (
-          <div className="p-4 bg-yellow-100 text-yellow-700 rounded-lg flex items-center">
+          <div className="p-6 bg-yellow-100 text-yellow-700 rounded-lg flex items-center">
             <AlertTriangle className="mr-2" />
             Pair not created yet.
           </div>

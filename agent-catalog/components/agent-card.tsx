@@ -46,7 +46,7 @@ export function AgentCard({ agent, index }: AgentCardProps) {
             <div className="flex items-center justify-between">
               <h3 className="font-orbitron font-semibold text-lg text-white">{agent.name}</h3>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-neon-pink font-orbitron">{agent.price} AIUS</span>
+                <span className="text-sm font-medium text-neon-pink font-orbitron">{agent.price.toPrecision(2)} AIUS</span>
                 <Badge
                   variant="secondary"
                   className="bg-neon-blue border-0 text-white font-roboto-mono hover:bg-neon-blue"

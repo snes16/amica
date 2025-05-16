@@ -28,7 +28,7 @@ export function AgentGrid({ agents }: AgentGridProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [sortOption, setSortOption] = useState("all")
 
-  // Filter agents based on search query (case-insensitive)
+  // Filter agents based on search query (case-insensitive), sort by price
   const filteredAgents = useMemo(() => {
     let result = agents.filter(agent =>
       agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -59,7 +59,7 @@ export function AgentGrid({ agents }: AgentGridProps) {
             />
           </div>
           <div className="flex flex-col sm:flex-row gap-4">
-            
+
             {/* TEMP Disabled: Sort by market cap */}
             {/* <Select defaultValue="market-cap">
               <SelectTrigger className="w-full sm:w-[180px] border-2 bg-white">
