@@ -95,7 +95,7 @@ async function fetchAgents(): Promise<Agent[]> {
       // Destructure safely if tokenData is present
       let price = 0;
       if (tokenData.length > 4 && !pairNotCreated) {
-        const [erc20Token, , reserve0, reserve1, pairAddress] = tokenData;
+        const [erc20Token, totalSupply , reserve0, reserve1, pairAddress] = tokenData;
 
         if (erc20Token && pairAddress) {
           try {

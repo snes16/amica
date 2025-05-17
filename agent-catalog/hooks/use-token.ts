@@ -63,14 +63,14 @@ export function useTokens(tokenId: number) {
 
 async function fetchTokenStats(tokenId: number) {
   try {
-    if(!CONTRACT_ADDRESS) {
+    if (!CONTRACT_ADDRESS) {
       throw new Error("Contract address is not defined.");
     }
 
     const nftContract = new ethers.Contract(
       CONTRACT_ADDRESS,
       ERC721_ABI,
-      provider
+      provider,
     );
     const [erc20Token, totalSupply, reserve0, reserve1, pairAddress] =
       await nftContract.getTokenData(tokenId);
@@ -84,7 +84,7 @@ async function fetchTokenStats(tokenId: number) {
     const pairContract = new ethers.Contract(
       pairAddress,
       UNIPAIR_ABI,
-      provider
+      provider,
     );
     const tokenContract = new ethers.Contract(erc20Token, ERC20_ABI, provider);
 
@@ -125,7 +125,7 @@ async function fetchTokenStats(tokenId: number) {
           },
           blockTimestamp: blockCache.get(event.blockNumber),
         };
-      })
+      }),
     ).then((events) => events.filter((e): e is SwapEvent => e !== null));
 
     const now = Math.floor(Date.now() / 1000);
@@ -136,13 +136,12 @@ async function fetchTokenStats(tokenId: number) {
 
     const findClosestPastPrice = (): number => {
       const sortedEvents = [...swapEvents].sort(
-        (a, b) => a.blockTimestamp - b.blockTimestamp
+        (a, b) => a.blockTimestamp - b.blockTimestamp,
       );
 
       for (let i = sortedEvents.length - 1; i >= 0; i--) {
         const e = sortedEvents[i];
         if (e.blockTimestamp <= timestamp24hAgo) {
-          
           const amount0In = getFloat(e.args.amount0In);
           const amount0Out = getFloat(e.args.amount0Out);
           const amount1In = getFloat(e.args.amount1In);
@@ -161,10 +160,11 @@ async function fetchTokenStats(tokenId: number) {
     };
 
     const pastPrice = findClosestPastPrice();
-    const change24h = pastPrice !== 0 ? ((price - pastPrice) / pastPrice) * 100 : 0;
+    const change24h =
+      pastPrice !== 0 ? ((price - pastPrice) / pastPrice) * 100 : 0;
 
     const last24hEvents = swapEvents.filter(
-      (e) => now - e.blockTimestamp <= 86400
+      (e) => now - e.blockTimestamp <= 86400,
     );
     const volume = last24hEvents.reduce((sum, e) => {
       return (
@@ -178,7 +178,7 @@ async function fetchTokenStats(tokenId: number) {
 
     const transferEvents: TransferEvent[] = transferFilter
       .map((event) =>
-        "args" in event ? { args: { to: event.args.to as string } } : null
+        "args" in event ? { args: { to: event.args.to as string } } : null,
       )
       .filter((e): e is TransferEvent => e !== null);
     const holders = new Set(transferEvents.map((e) => e.args.to)).size;
@@ -189,11 +189,21 @@ async function fetchTokenStats(tokenId: number) {
         const amount0Out = getFloat(e.args.amount0Out);
         const amount1In = getFloat(e.args.amount1In);
         const amount1Out = getFloat(e.args.amount1Out);
+
         let price = 0;
-        if (amount0In > 0 && amount1Out > 0) {
-          price = amount1Out / amount0In;
-        } else if (amount1In > 0 && amount0Out > 0) {
-          price = amount0Out / amount1In;
+
+        if (token0 === erc20Token) {
+          if (amount0In > 0 && amount1Out > 0) {
+            price = amount1Out / amount0In;
+          } else if (amount1In > 0 && amount0Out > 0) {
+            price = amount1In / amount0Out;
+          }
+        } else {
+          if (amount1In > 0 && amount0Out > 0) {
+            price = amount0Out / amount1In;
+          } else if (amount0In > 0 && amount1Out > 0) {
+            price = amount0In / amount1Out;
+          }
         }
 
         return {
@@ -209,8 +219,13 @@ async function fetchTokenStats(tokenId: number) {
       : [{ x: new Date().toISOString(), y: price }];
 
     const cleanedPriceHistory = finalPriceHistory.filter(
-      (p) => p.y > 0.01 && p.y < 1_000_000
+      (p) => p.y > 0.01 && p.y < 1_000_000,
     );
+
+    cleanedPriceHistory.push({
+      x: new Date().toISOString(),
+      y: price,
+    });
 
     return {
       stats: { marketCap, tvl, price, volume, holders, change24h },
