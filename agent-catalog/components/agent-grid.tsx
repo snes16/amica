@@ -14,35 +14,47 @@ interface AgentGridProps {
 }
 
 const categories = [
-  { name: "All Agents", icon: Brain },
-  { name: "Programmer", icon: Code },
-  { name: "Researcher", icon: Microscope },
-  { name: "Friend", icon: Users },
-  { name: "Security", icon: Shield },
-  { name: "Degen Trader", icon: TrendingUp },
-  { name: "Crypto", icon: Bitcoin },
-  { name: "Personal Assistant", icon: Briefcase },
+  { name: "All Agents", icon: Brain, key: "all" },
+  { name: "Programmer", icon: Code, key: "programmer" },
+  { name: "Researcher", icon: Microscope, key: "researcher" },
+  { name: "Friend", icon: Users, key: "friend" },
+  { name: "Security", icon: Shield, key: "security" },
+  { name: "Degen Trader", icon: TrendingUp, key: "degenTrader" },
+  { name: "Crypto", icon: Bitcoin, key: "crypto" },
+  { name: "Personal Assistant", icon: Briefcase, key: "personalAssistant" },
 ]
 
 export function AgentGrid({ agents }: AgentGridProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [sortOption, setSortOption] = useState("all")
+  const [selectedCategory, setSelectedCategory] = useState("all")
 
-  // Filter agents based on search query (case-insensitive), sort by price
+  // Filter agents based on category, search query and sort
   const filteredAgents = useMemo(() => {
-    let result = agents.filter(agent =>
-      agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      agent.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    let result = [...agents]
 
+    // Category filter
+    if (selectedCategory !== "all") {
+      result = result.filter(agent => agent.category === selectedCategory)
+    }
+
+    // Search filter
+    if (searchQuery) {
+      result = result.filter(agent =>
+        agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        agent.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+
+    // Sort
     if (sortOption === "price-asc") {
-      result = [...result].sort((a, b) => (a.price || 0) - (b.price || 0))
+      result = result.sort((a, b) => (a.price || 0) - (b.price || 0))
     } else if (sortOption === "price-desc") {
-      result = [...result].sort((a, b) => (b.price || 0) - (a.price || 0))
+      result = result.sort((a, b) => (b.price || 0) - (a.price || 0))
     }
 
     return result
-  }, [searchQuery, agents, sortOption])
+  }, [searchQuery, agents, sortOption, selectedCategory])
 
 
   return (
@@ -87,20 +99,24 @@ export function AgentGrid({ agents }: AgentGridProps) {
           </div>
         </div>
 
-        {/* Categories */}
+       {/* Categories */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
           {categories.map((category, index) => {
             const Icon = category.icon
+            const isSelected = selectedCategory === category.key
             return (
               <motion.div
-                key={category.name}
+                key={category.key}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
+                transition={{ delay: index * 0.05 }}
               >
                 <Button
+                  onClick={() => setSelectedCategory(category.key)}
                   variant="outline"
-                  className="h-auto py-4 w-full flex flex-col gap-2 hover:bg-blue-50 hover:border-blue-500 transition-colors"
+                  className={`h-auto py-4 w-full flex flex-col gap-2 transition-colors ${
+                    isSelected ? "bg-blue-100 border-blue-500" : "hover:bg-blue-50"
+                  }`}
                 >
                   <Icon className="h-6 w-6 text-blue-500" />
                   <span className="text-sm">{category.name}</span>
