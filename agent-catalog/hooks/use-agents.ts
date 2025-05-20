@@ -141,7 +141,7 @@ async function fetchAgents(): Promise<Agent[]> {
         token: "AINFT",
         description: description || "No description available",
         price,
-        status: "active",
+        status: "status",
         avatar: image,
         category: agentCategory || "All Agents",
         tags: tags?.split(",") || [],

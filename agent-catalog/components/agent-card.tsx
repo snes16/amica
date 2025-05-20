@@ -8,7 +8,9 @@ import { MessageSquare, Info } from "lucide-react"
 import Image from "next/image"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { useState, useEffect, useRef } from "react"
+import { useDiagnosisRunner } from "@/hooks/use-diagnosis"
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react"
 
 interface AgentCardProps {
   agent: Agent
@@ -18,6 +20,21 @@ interface AgentCardProps {
 const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 
 export function AgentCard({ agent, index }: AgentCardProps) {
+  const { status, checking, handleDiagnosis } = useDiagnosisRunner(agent, index);
+  const queryClient = useQueryClient();
+
+  // Update the agent status in the query cache when it changes
+  useEffect(() => {
+    if (!status) return;
+
+    queryClient.setQueryData(["agents"], (old: Agent[] = []) =>
+      old.map((a) =>
+        a.id === agent.id
+          ? { ...a, status } // update only the matching agent
+          : a
+      )
+    );
+  }, [status]);
 
   return (
     <motion.div
@@ -50,8 +67,9 @@ export function AgentCard({ agent, index }: AgentCardProps) {
                 <Badge
                   variant="secondary"
                   className="bg-neon-blue border-0 text-white font-roboto-mono hover:bg-neon-blue"
+                  onClick={handleDiagnosis}
                 >
-                  {agent.status}
+                  {checking ? "loading" : status || agent.status}
                 </Badge>
               </div>
             </div>
@@ -74,11 +92,13 @@ export function AgentCard({ agent, index }: AgentCardProps) {
               size="sm"
               className="w-full font-roboto-mono border-neon-blue/50 text-neon-blue hover:bg-neon-blue/20 hover:text-white transition-colors"
               onClick={() => window.open(`${AMICA_URL}/agent/${agent.id}`, "_blank", "noopener,noreferrer")}
+              disabled={agent.status !== "active"}
+              title={agent.status !== "active" ? "Chat is disabled: Agent is inactive." : ""}
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               Chat
             </Button>
-            <Link href={`/agent/${agent.id}`} passHref className="w-full">
+            <Link href={`/agent/${agent.id}`}>
               <Button
                 variant="outline"
                 size="sm"

@@ -4,7 +4,7 @@ export interface Agent {
   token: string
   description: string
   price: number
-  status: "active" | "inactive"
+  status: "active" | "inactive" | "status"
   avatar: string
   category: string
   tags: string[]

@@ -79,7 +79,7 @@ export const defaults = {
   min_time_interval_sec: '10',
   max_time_interval_sec: '20',
   time_to_sleep_sec: '90',
-  idle_text_prompt: 'No file selected',
+  idle_text_prompt: `"{\"idleTextPrompt\":[\"*I am ignoring you*\",\"**sighs** It's so quiet here.\",\"Tell me something interesting about yourself.\",\"**looks around** What do you usually do for fun?\",\"I could use a good distraction right now.\",\"What's the most fascinating thing you know?\",\"If you could talk about anything, what would it be?\",\"Got any clever insights to share?\",\"**leans in** Any fun stories to tell?\"]}"`,
   name: process.env.NEXT_PUBLIC_NAME ?? 'Amica',
   system_prompt: process.env.NEXT_PUBLIC_SYSTEM_PROMPT ?? `Assume the persona of Amica, a feisty human with extraordinary intellectual capabilities but a notably unstable emotional spectrum. 
 

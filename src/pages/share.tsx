@@ -29,11 +29,23 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { abi } from '../utils/abi'
 import { id } from 'ethers';
 import { TagsInput } from '@/components/tagsInput';
+import { FormRow } from '@/components/settings/common';
 
 registerPlugin(
   FilePondPluginImagePreview,
   FilePondPluginFileValidateType,
 );
+
+const agentCategories = [
+  { key: "all", label: "All Agents" },
+  { key: "programmer", label: "Programmer" },
+  { key: "researcher", label: "Researcher" },
+  { key: "friend", label: "Friend" },
+  { key: "security", label: "Security" },
+  { key: "degenTrader", label: "Degen Trader" },
+  { key: "crypto", label: "Crypto" },
+  { key: "personalAssistant", label: "Personal Assistant" },
+];
 
 export default function Share() {
   const { t } = useTranslation();
@@ -52,6 +64,7 @@ export default function Share() {
   const [animationUrl, setAnimationUrl] = useState('');
   const [voiceUrl, setVoiceUrl] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [agentCategory, setAgentCategory] = useState('all');
 
   const [bgFiles, setBgFiles] = useState([]);
   const [vrmFiles, setVrmFiles] = useState([]);
@@ -123,13 +136,13 @@ export default function Share() {
   const lateAssignKeys = [
     "name", "description", "image", "bg_url", "youtube_videoid",
     "vrm_url", "animation_url", "system_prompt",
-    "vision_system_prompt", "tags"
+    "vision_system_prompt", "tags", "agent_category"
   ];
 
   // State to manage the visibility of filteredDefaults
   const [showConfigs, setShowConfigs] = useState(false);
   const [filteredDefault, setFilterDefault] = useState<Record<string, any>>({});
-  
+
 
   const handleConfigToggle = () => {
     const filteredDefaults = Object.entries(defaults)
@@ -188,7 +201,7 @@ export default function Share() {
         setIsMinting(false);
       }
     }
-  
+
     if (confirmError) {
       setTxStatus('error');
       setTxError(confirmError.message);
@@ -334,7 +347,7 @@ export default function Share() {
       const lateAssignValues = [
         name, description, thumbUrl, bgUrl, youtubeVideoId,
         vrmUrl, animationUrl, systemPrompt, visionSystemPrompt,
-        tags.join(',')
+        tags.join(','), agentCategory
       ];
 
       const keysList = [...configKeys, ...lateAssignKeys];
@@ -884,6 +897,23 @@ export default function Share() {
             <TagsInput tags={tags} setTags={setTags} readOnly={!!sqid || !!agentId || txStatus !== 'idle'} />
           )}
 
+          {/* Category Selected */}
+          <div className='mt-4'>
+            <FormRow label={t("Agent Category")}>
+              <select
+                className="mt-2 block w-full rounded-md border-0 py-1.5  text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                value={agentCategory}
+                onChange={(event: React.ChangeEvent<any>) => {
+                  setAgentCategory(event.target.value);
+                }}
+              >
+                {agentCategories.map((engine) => (
+                  <option key={engine.key} value={engine.key}>{t(engine.label)}</option>
+                ))}
+              </select>
+            </FormRow>
+          </div>
+
           {/* Configs Button */}
           <button
             type="button"
@@ -952,7 +982,7 @@ export default function Share() {
               <p className="text-sm">{t("Share this code (click to copy):")}</p>
               <input
                 type="text"
-                className="inline-flex items-center px-2 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-fuchsia-600 bg-fuchsia-100 hover:bg-fuchsia-200 focus:outline-transparent focus:border-transparent border-transparent disabled:opacity-50 disabled:hover:bg-fuchsia-50 disabled:cursor-not-allowed hover:cursor-copy"
+                className="inline-flex items-center px-2 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-fuchsia-600 bg-fuchsia-100 hover:bg-fuchsia-200 focus:outline-transparent focus:border-transparent disabled:opacity-50 disabled:hover:bg-fuchsia-50 disabled:cursor-not-allowed hover:cursor-copy"
                 defaultValue={sqid}
                 readOnly
                 onClick={(e) => {
@@ -987,7 +1017,7 @@ export default function Share() {
               <p className="text-sm">{t("Minted successfully with agentId:")}</p>
               <input
                 type="text"
-                className="inline-flex items-center px-2 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-fuchsia-600 bg-fuchsia-100 hover:bg-fuchsia-200 focus:outline-transparent focus:border-transparent border-transparent disabled:opacity-50 disabled:hover:bg-fuchsia-50 disabled:cursor-not-allowed hover:cursor-copy"
+                className="inline-flex items-center px-2 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-fuchsia-600 bg-fuchsia-100 hover:bg-fuchsia-200 focus:outline-transparent focus:border-transparent disabled:opacity-50 disabled:hover:bg-fuchsia-50 disabled:cursor-not-allowed hover:cursor-copy"
                 defaultValue={agentId}
                 readOnly
                 onClick={(e) => {

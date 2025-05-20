@@ -5,7 +5,7 @@ import { ethers } from "ethers";
 import { backendKeyMap } from "@/features/diagnosed/backendKeys";
 import { ERC721_ABI } from "@/utils/abi/erc721";
 
-function extractKeyNames(agentConfig: Record<string, string>) {
+export function extractKeyNames(agentConfig: Record<string, string>) {
   const keysMap: Record<string, string[]> = {};
 
   for (const backendType in agentConfig) {
@@ -40,7 +40,7 @@ export function useBackend(agentId: number, agentConfig: Record<string, string>)
 }
 
 // --- FETCHER: fetchBackend ---
-async function fetchBackend(
+export async function fetchBackend(
   agentId: number,
   keysList: string[],
   keysMap: Record<string, string[]>

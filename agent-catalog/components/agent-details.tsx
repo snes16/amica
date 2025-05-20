@@ -32,6 +32,7 @@ const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 export function AgentDetails({ agent }: AgentDetailsProps) {
   const [vrmLoaded, setVrmLoaded] = useState(false);
   const [vrmError, setVrmError] = useState(false);
+  const [diagnosisPassed, setDiagnosisPassed] = useState(false);
   const router = useRouter();
   const { stats, priceHistory, tokenAddress, loading, error } = useTokens(Number(agent.id));
   const [reserveAmount, setReserveAmount] = useState("");
@@ -60,6 +61,12 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
   const formattedOwed = owed ? formatUnits(owed, 18) : "0.0";
 
   const isPairNotCreated = error == "Pair not created";
+
+  useEffect(() => {
+    if (agent.status === "active") {
+      setDiagnosisPassed(true);
+    }
+  }, [agent.status]);
 
   // Update the latest price of token
   useEffect(() => {
@@ -132,7 +139,7 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
             />
 
             {!isPairNotCreated && (<PriceChart priceHistory={isPairNotCreated ? [] : priceHistory} />)}
-            <AgentVrmDiagnosis vrmLoaded={vrmLoaded} vrmError={vrmError} agentId={agent.id} agentConfig={agent.config} />
+            <AgentVrmDiagnosis vrmUrl={agent.vrmUrl} agentId={agent.id} agentConfig={agent.config}/>
           </div>
           <div className="space-y-8">
             <div className="flex justify-center space-x-4 mb-8">
@@ -141,6 +148,8 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
                 onClick={() =>
                   window.open(`${AMICA_URL}/agent/${agent.id}`, "_blank", "noopener,noreferrer")
                 }
+                disabled={!diagnosisPassed}
+                title={!diagnosisPassed ? "Chat is disabled: Agent is inactive." : ""}
               >
                 <MessageSquare className="mr-2 h-4 w-4" /> Chat
               </Button>
@@ -230,8 +239,8 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
             </div>
             <AgentDescription description={agent.description} />
             <SocialMediaButtons />
-            {agent.tags.length > 1 && 
-            <AgentTags tags={agent.tags} />}
+            {agent.tags.length > 1 &&
+              <AgentTags tags={agent.tags} />}
             <AgentTiers currentTier={agent.tier} />
             <Integrations />
           </div>

@@ -7,7 +7,9 @@ import { ttsDiagnosis } from "./ttsDiagnosis";
 import { visionDiagnosis } from "./visionDiagnosis";
 
 export async function diagnosisScript(key: string,backend: string, params: object) {
-  console.log("diagnosisScript", key, backend, params);
+  // Debug all the backend configs
+  // console.log("diagnosisScript", key, backend, params);
+
   switch (key) {
     case "chatbot":
       return await chatbotDiagnosis(backend, params);

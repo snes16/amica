@@ -4,10 +4,12 @@ import { Button } from "./ui/button";
 import { useDiagnosis } from "@/hooks/use-diagnosis";
 import { DiagnosisResult } from "./diagnosis-result";
 import { checks } from "@/components/diagnosis-result";
+import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Agent } from "@/types/agent";
 
 interface AgentVrmDiagnosisProps {
-  vrmLoaded: boolean;
-  vrmError: boolean;
+  vrmUrl: string;
   agentId: string;
   agentConfig: {
     chatbotBackend: string;
@@ -19,11 +21,11 @@ interface AgentVrmDiagnosisProps {
 }
 
 export function AgentVrmDiagnosis({
-  vrmLoaded,
-  vrmError,
+  vrmUrl,
   agentId,
   agentConfig
 }: AgentVrmDiagnosisProps) {
+  const queryClient = useQueryClient();
   const {
     data: fullConfig,
     loading: configLoading,
@@ -33,8 +35,7 @@ export function AgentVrmDiagnosis({
   const { results, runDiagnosis } = useDiagnosis(
     agentConfig,
     fullConfig,
-    vrmLoaded,
-    vrmError
+    vrmUrl
   );
 
   const handleDiagnosis = () => {
@@ -44,6 +45,25 @@ export function AgentVrmDiagnosis({
     }
     runDiagnosis();
   };
+
+  // Update the agent status in the query cache when it changes
+  useEffect(() => {
+    const isPassed = checks.every(({ key }) => results[key] === "pass");
+    queryClient.setQueryData(["agents"], (old: Agent[] = []) =>
+          old.map((a) =>
+            a.id === agentId
+              ? { ...a, status: isPassed ? "active" : "inactive" } // update only the matching agent
+              : a
+          )
+        );
+  }, [results]);
+
+  // Running the diagnosis when the config is loaded
+  useEffect(() => {
+    if (fullConfig) {
+      handleDiagnosis();
+    }
+  }, [fullConfig]);
 
   return (
     <div className="w-full p-6 border border-gray-200 rounded-3xl bg-white shadow-xl flex flex-col justify-between">
