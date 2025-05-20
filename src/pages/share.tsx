@@ -898,6 +898,7 @@ export default function Share() {
           )}
 
           {/* Category Selected */}
+          {characterCreatorType === "Minting" && (
           <div className='mt-4'>
             <FormRow label={t("Agent Category")}>
               <select
@@ -913,6 +914,7 @@ export default function Share() {
               </select>
             </FormRow>
           </div>
+          )}
 
           {/* Configs Button */}
           <button
