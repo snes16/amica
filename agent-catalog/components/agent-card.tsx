@@ -10,7 +10,7 @@ import { motion } from "framer-motion"
 import Link from "next/link"
 import { useDiagnosisRunner } from "@/hooks/use-diagnosis"
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 
 interface AgentCardProps {
   agent: Agent
@@ -22,6 +22,15 @@ const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 export function AgentCard({ agent, index }: AgentCardProps) {
   const { status, checking, handleDiagnosis } = useDiagnosisRunner(agent, index);
   const queryClient = useQueryClient();
+  const hasChecked = useRef(false);
+
+  // Check agent status on mount
+  useEffect(() => {
+    if (!hasChecked.current) {
+      handleDiagnosis();
+      hasChecked.current = true;
+    }
+  }, []);
 
   // Update the agent status in the query cache when it changes
   useEffect(() => {
@@ -67,7 +76,6 @@ export function AgentCard({ agent, index }: AgentCardProps) {
                 <Badge
                   variant="secondary"
                   className="bg-neon-blue border-0 text-white font-roboto-mono hover:bg-neon-blue"
-                  onClick={handleDiagnosis}
                 >
                   {checking ? "loading" : status || agent.status}
                 </Badge>
