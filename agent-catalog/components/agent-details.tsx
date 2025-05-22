@@ -29,6 +29,8 @@ interface AgentDetailsProps {
 
 const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
 export function AgentDetails({ agent }: AgentDetailsProps) {
   const [vrmLoaded, setVrmLoaded] = useState(false);
   const [vrmError, setVrmError] = useState(false);
@@ -79,12 +81,22 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
   // refetch aius and reserve amount after reserve, reload page if pair created
   useEffect(() => {
     if (reserveSuccess) {
-      refetchAiusData();
-      refetchAiusAmount();
-      setReserveAmount("");
-      if (aius == BigInt(100)) {
-        router.refresh();
-      }
+      const refetchAndCheck = async () => {
+        await refetchAiusData();
+        await refetchAiusAmount();
+
+        const refreshedData = await refetchAiusData();
+        const [refreshedAius] = (refreshedData.data as [bigint, bigint]) || [BigInt(0), BigInt(0)];
+
+        setReserveAmount("");
+
+        if (refreshedAius >= BigInt(100)) {
+          await delay(5000);
+          router.refresh(); // Refresh the page
+        }
+      };
+
+      refetchAndCheck();
     }
   }, [refetchAiusData, reserveSuccess, refetchAiusAmount]);
 
@@ -208,7 +220,7 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
                       }
                       reserveTokens(Number(agent.id), reserveAmount);
                     }}
-                    disabled={reserving}
+                    disabled={reserving || 100 - Number(formattedAius) == 0}
                   >
                     {reserving ? "Reserving..." : (
                       <>

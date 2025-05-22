@@ -236,8 +236,7 @@ async function fetchTokenStats(tokenId: number) {
     const reason = (error as any)?.revert?.args?.[0] ?? (error as any)?.reason;
 
     if (reason === "Pair not created") {
-      console.warn("Pair not created");
-      throw "Pair not created";
+      throw reason;
     } else {
       console.error("Error fetching token stats:", error);
       throw error;

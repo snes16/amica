@@ -11,6 +11,7 @@ import Link from "next/link"
 import { useDiagnosisRunner } from "@/hooks/use-diagnosis"
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react"
+import { CACHE_TTL } from "@/lib/query-client"
 
 interface AgentCardProps {
   agent: Agent
@@ -26,7 +27,11 @@ export function AgentCard({ agent, index }: AgentCardProps) {
 
   // Check agent status on mount
   useEffect(() => {
-    if (!hasChecked.current) {
+    const cachedTimestamp = localStorage.getItem("agents_timestamp");
+    const now = Date.now();
+    
+    // Cache status for TTL time
+    if (!hasChecked.current && cachedTimestamp && now - parseInt(cachedTimestamp, 10) < CACHE_TTL) {
       handleDiagnosis();
       hasChecked.current = true;
     }
