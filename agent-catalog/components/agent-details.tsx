@@ -22,6 +22,7 @@ import { formatUnits } from "ethers";
 import { ERC20_ABI } from "@/utils/abi/erc20";
 import { AgentVrmDiagnosis } from "./agent-diagnosis";
 import { useRouter } from 'next/navigation';
+import { forma } from "wagmi/chains";
 
 interface AgentDetailsProps {
   agent: Agent;
@@ -82,17 +83,15 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
   useEffect(() => {
     if (reserveSuccess) {
       const refetchAndCheck = async () => {
-        await refetchAiusData();
+        const { data: aiusAndOwedData } = await refetchAiusData();
         await refetchAiusAmount();
-
-        const refreshedData = await refetchAiusData();
-        const [refreshedAius] = (refreshedData.data as [bigint, bigint]) || [BigInt(0), BigInt(0)];
-
         setReserveAmount("");
 
-        if (refreshedAius >= BigInt(100)) {
+        const [newAius, newOwed] = (aiusAndOwedData as [bigint, bigint]) || [BigInt(0), BigInt(0)];
+        const formattedAius = parseFloat(formatUnits(newAius, 18));
+        if (formattedAius >= 100) {
           await delay(5000);
-          router.refresh(); // Refresh the page
+          window.location.reload(); // Refresh the page
         }
       };
 

@@ -29,7 +29,7 @@ export function useBackend(agentId: number, agentConfig: Record<string, string>)
   } = useQuery({
     queryKey: ["backend", agentId, keysList],
     queryFn: () => fetchBackend(agentId, keysList, keysMap),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 10 * 60 * 1000, // 5 minutes
   });
 
   return {

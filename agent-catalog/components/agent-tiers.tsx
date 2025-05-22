@@ -1,6 +1,7 @@
 import { Progress } from "./ui/progress"
 
-const tiers = [
+export const tiers = [
+  { name: "None", requiredAIUS: 0 },
   { name: "Newborn", requiredAIUS: 100 },
   { name: "Baby", requiredAIUS: 500 },
   { name: "Child", requiredAIUS: 1000 },
@@ -8,9 +9,10 @@ const tiers = [
   { name: "Adult", requiredAIUS: 10000 },
 ]
 
+
 interface AgentTiersProps {
   currentTier: {
-    name: "Newborn" | "Baby" | "Child" | "Teen" | "Adult"
+    name: "None" | "Newborn" | "Baby" | "Child" | "Teen" | "Adult"
     level: number
     stakedAIUS: number
   }
@@ -18,11 +20,13 @@ interface AgentTiersProps {
 
 export function AgentTiers({ currentTier }: AgentTiersProps) {
   const currentTierIndex = tiers.findIndex((tier) => tier.name === currentTier.name)
+  const currentTierRequired = tiers[currentTierIndex]?.requiredAIUS ?? 0
   const nextTier = tiers[currentTierIndex + 1]
+
   const progress = nextTier
-    ? ((currentTier.stakedAIUS - tiers[currentTierIndex].requiredAIUS) /
-        (nextTier.requiredAIUS - tiers[currentTierIndex].requiredAIUS)) *
-      100
+    ? ((currentTier.stakedAIUS - currentTierRequired) /
+      (nextTier.requiredAIUS - currentTierRequired)) *
+    100
     : 100
 
   return (
@@ -39,7 +43,11 @@ export function AgentTiers({ currentTier }: AgentTiersProps) {
             <Progress value={progress} className="h-2 bg-gray-200 bg-blue-500" />
             <div className="flex justify-between mt-1">
               <span className="font-roboto-mono text-gray-500 text-xs">{currentTier.stakedAIUS} AIUS</span>
-              {nextTier && <span className="font-roboto-mono text-gray-500 text-xs">{nextTier.requiredAIUS} AIUS</span>}
+              {nextTier && (
+                <span className="font-roboto-mono text-gray-500 text-xs">
+                  {nextTier.requiredAIUS} AIUS
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -116,7 +124,14 @@ function TierIcon({ name, className }: { name: string; className?: string }) {
         </svg>
       )
     default:
-      return null
+      return (
+        <div className={className}>
+          <svg viewBox="0 0 24 24" fill="none" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" stroke="#E5E7EB" strokeWidth="2" />
+            <text x="12" y="16" textAnchor="middle" fill="#9CA3AF" fontSize="10">None</text>
+          </svg>
+        </div>
+      )
   }
 }
 

@@ -1,11 +1,12 @@
 "use client";
 
-import { ethers } from "ethers";
+import { ethers, formatUnits } from "ethers";
 import type { Agent } from "@/types/agent";
 import { ERC721_ABI } from "@/utils/abi/erc721";
 import { useQuery } from "@tanstack/react-query";
 import { CACHE_TTL } from "@/lib/query-client";
 import { UNIPAIR_ABI } from "@/utils/abi/uniswapPair";
+import { AgentTier, calculatedAgentTier } from "@/utils/tierCalculator";
 
 const metadataKeys = [
   "name",
@@ -48,6 +49,7 @@ async function fetchAgents(): Promise<Agent[]> {
     cachedTimestamp &&
     now - parseInt(cachedTimestamp, 10) < CACHE_TTL
   ) {
+    console.log("Using cached agents data");
     return JSON.parse(cachedData) as Agent[];
   }
 
@@ -95,6 +97,7 @@ async function fetchAgents(): Promise<Agent[]> {
 
       // Destructure safely if tokenData is present
       let price = 0;
+      let tier = { };
       if (tokenData.length > 4 && !pairNotCreated) {
         const [erc20Token, totalSupply , reserve0, reserve1, pairAddress] = tokenData;
 
@@ -115,10 +118,18 @@ async function fetchAgents(): Promise<Agent[]> {
             const aius = parseFloat(ethers.formatUnits(aiusReserve, 18));
             const tokens = parseFloat(ethers.formatUnits(tokenReserve, 18));
             if (tokens > 0) price = aius / tokens;
+
+            // Calculate agent tier from AIUS reserve
+            tier = calculatedAgentTier(aius);
           } catch (innerError: any) {
             console.error(`Error fetching pair data for token ${tokenId}:`,innerError,);
           }
         }
+      } else {
+        const data = await contract.getAiusAndOwed(tokenId, CONTRACT_ADDRESS);
+        const [aius, owed] = (data as [bigint, bigint]) || [BigInt(0), BigInt(0)];
+        const formattedAius = formatUnits(aius, 18)
+        tier = { name: "None", level: 0, stakedAIUS: Number(formattedAius) } as AgentTier;
       }
 
       const [
@@ -145,7 +156,7 @@ async function fetchAgents(): Promise<Agent[]> {
         avatar: image,
         category: agentCategory || "All Agents",
         tags: tags?.split(",") || [],
-        tier: { name: "Teen", level: 4, stakedAIUS: 5000 },
+        tier: tier as AgentTier,
         vrmUrl,
         bgUrl,
         config: {

@@ -9,7 +9,7 @@ export interface Agent {
   category: string
   tags: string[]
   tier: {
-    name: "Newborn" | "Baby" | "Child" | "Teen" | "Adult"
+    name: "None" | "Newborn" | "Baby" | "Child" | "Teen" | "Adult"
     level: number
     stakedAIUS: number
   }
