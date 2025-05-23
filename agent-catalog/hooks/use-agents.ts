@@ -1,188 +1,196 @@
-"use client";
-
 import { ethers, formatUnits } from "ethers";
-import type { Agent } from "@/types/agent";
-import { ERC721_ABI } from "@/utils/abi/erc721";
-import { useQuery } from "@tanstack/react-query";
-import { CACHE_TTL } from "@/lib/query-client";
 import { UNIPAIR_ABI } from "@/utils/abi/uniswapPair";
 import { AgentTier, calculatedAgentTier } from "@/utils/tierCalculator";
+import type { Agent } from "@/types/agent";
+import { CACHE_TTL } from "@/lib/query-client";
+import { useQuery } from "wagmi/query";
+import {
+  CONTRACT_ADDRESS,
+  getEthcallProvider,
+  getMainContract,
+  getMainEthcallContract,
+  getProvider,
+} from "@/lib/provider";
 
+
+// Keys used to fetch agent metadata from the contract
 const metadataKeys = [
-  "name",
-  "description",
-  "image",
-  "vrm_url",
-  "bg_url",
-  "tags",
-  "agent_category",
-  "chatbot_backend",
-  "tts_backend",
-  "stt_backend",
-  "vision_backend",
+  "name", "description", "image", "vrm_url", "bg_url",
+  "tags", "agent_category", "chatbot_backend",
+  "tts_backend", "stt_backend", "vision_backend",
 ];
 
-const chunkSize = 10;
-
-const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-
-export function useAgents() {
+/**
+ * Custom React hook to fetch and manage agents.
+ * Uses React Query for async data fetching with caching support.
+ */
+export function useAgents(agentId?: number) {
   const {
     data: agents = [],
     isLoading: loading,
     error,
   } = useQuery({
-    queryKey: ["agents"],
-    queryFn: fetchAgents,
+    queryKey: agentId !== undefined ? ["agent", agentId] : ["agents"],
+    queryFn: () => fetchAgents(agentId),
   });
 
-  return { agents, loading, error: error ? (error as Error).message : null };
+  return {
+    agents,
+    loading,
+    error: error ? (error as Error).message : null,
+  };
 }
 
-async function fetchAgents(): Promise<Agent[]> {
-  const cachedData = localStorage.getItem("agents");
-  const cachedTimestamp = localStorage.getItem("agents_timestamp");
+/**
+ * Fetches all AI agents from the blockchain.
+ * Uses localStorage for basic TTL caching to avoid redundant on-chain reads.
+ */
+export async function fetchAgents(agentId?: number): Promise<Agent[] | Agent | null> {
+  const agentsCacheRaw = localStorage.getItem("agents");
+  const timestampsRaw = localStorage.getItem("agent_timestamps");
+
+  const agentsCache: Record<string, Agent> = agentsCacheRaw ? JSON.parse(agentsCacheRaw) : {};
+  const timestamps: Record<string, number> = timestampsRaw ? JSON.parse(timestampsRaw) : {};
   const now = Date.now();
 
-  if (
-    cachedData &&
-    cachedTimestamp &&
-    now - parseInt(cachedTimestamp, 10) < CACHE_TTL
-  ) {
-    console.log("Using cached agents data");
-    return JSON.parse(cachedData) as Agent[];
+  // Check TTL if agentId is specified
+  if (agentId !== undefined) {
+    const idStr = String(agentId);
+    const timestamp = timestamps[idStr];
+    if (agentsCache[idStr] && timestamp && now - timestamp < CACHE_TTL) {
+      console.log("Using cached single agent data");
+      return agentsCache[idStr];
+    }
+  } else {
+    // Check TTL for all agents
+    const allValid = Object.entries(timestamps).every(([id, timestamp]) =>
+      agentsCache[id] && now - timestamp < CACHE_TTL
+    );
+    if (Object.keys(agentsCache).length && allValid) {
+      console.log("Using cached agents data");
+      return Object.values(agentsCache);
+    }
   }
 
-  const INFURA_RPC = process.env.NEXT_PUBLIC_INFURA_RPC;
-  const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+  // --- FETCH from blockchain ---
+  const provider = getProvider();
+  const contract = getMainContract();
+  const ethcallContract = getMainEthcallContract();
+  const ethcallProvider = await getEthcallProvider();
 
-  if (!INFURA_RPC || !CONTRACT_ADDRESS) {
-    throw new Error("Missing required environment variables.");
-  }
+  const tokenIds = agentId !== undefined
+    ? [agentId]
+    : Array.from({ length: Number(await contract.tokenIdCounter()) }, (_, i) => i);
 
-  const provider = new ethers.JsonRpcProvider(INFURA_RPC);
-  const contract = new ethers.Contract(CONTRACT_ADDRESS, ERC721_ABI, provider);
+  const metadataCalls = tokenIds.map((id) => ethcallContract.getMetadata(id, metadataKeys));
+  const metadataResults = await ethcallProvider.all(metadataCalls);
 
-  const totalNFTs = Number(await contract.tokenIdCounter());
-  const tokenIds = Array.from({ length: totalNFTs }, (_, i) => i);
+  const pairContractCache = new Map<string, ethers.Contract>();
+  const token0Cache = new Map<string, string>();
+
   const fetchedAgents: Agent[] = [];
 
-  for (let i = 0; i < tokenIds.length; i += chunkSize) {
-  await delay(300);
-  const chunk = tokenIds.slice(i, i + chunkSize);
+  for (let i = 0; i < tokenIds.length; i++) {
+    const tokenId = tokenIds[i];
+    const metadata = metadataResults[i];
+    if (!Array.isArray(metadata) || metadata.length === 0 || metadata[0] === "0x") continue;
 
-  const results = await Promise.all(
-    chunk.map(async (tokenId) => {
-      let metadata: string[] = [];
-      let tokenData: any[] = [];  
-      let pairNotCreated: boolean = false;
+    let price = 0;
+    let tier: AgentTier = { name: "None", level: 0, stakedAIUS: 0 };
 
-      try {
-        metadata = await contract.getMetadata(tokenId, metadataKeys);
-      } catch (err) {
-        console.warn(`Metadata fetch failed for token ${tokenId}:`, err);
-      }
-
-      try {
-        tokenData = await contract.getTokenData(tokenId);
-      } catch (err: any) {
-        const reason = err?.revert?.args?.[0] ?? err?.reason ?? "";
-        if (reason === "Pair not created") { pairNotCreated = true; }
-        else {
-          console.warn(`TokenData fetch failed for token ${tokenId}:`, err);
-        }
-      }
-
-      if (!metadata?.length || metadata[0] === "0x") return null;
-
-      // Destructure safely if tokenData is present
-      let price = 0;
-      let tier = { };
-      if (tokenData.length > 4 && !pairNotCreated) {
-        const [erc20Token, totalSupply , reserve0, reserve1, pairAddress] = tokenData;
+    try {
+      const tokenData = await contract.getTokenData(tokenId);
+      if ((tokenData as any[]).length > 4) {
+        const [erc20Token, , reserve0, reserve1, pairAddress] = tokenData as any[];
 
         if (erc20Token && pairAddress) {
-          try {
-            const pairContract = new ethers.Contract(
-              pairAddress,
-              UNIPAIR_ABI,
-              provider,
-            );
-            const token0 = await pairContract.token0();
-
-            const [aiusReserve, tokenReserve] =
-              token0 === erc20Token
-                ? [reserve1, reserve0]
-                : [reserve0, reserve1];
-
-            const aius = parseFloat(ethers.formatUnits(aiusReserve, 18));
-            const tokens = parseFloat(ethers.formatUnits(tokenReserve, 18));
-            if (tokens > 0) price = aius / tokens;
-
-            // Calculate agent tier from AIUS reserve
-            tier = calculatedAgentTier(aius);
-          } catch (innerError: any) {
-            console.error(`Error fetching pair data for token ${tokenId}:`,innerError,);
+          if (!pairContractCache.has(pairAddress)) {
+            pairContractCache.set(pairAddress, new ethers.Contract(pairAddress, UNIPAIR_ABI, provider));
           }
+          const pairContract = pairContractCache.get(pairAddress)!;
+
+          if (!token0Cache.has(pairAddress)) {
+            const token0 = await pairContract.token0();
+            token0Cache.set(pairAddress, token0);
+          }
+
+          const token0 = token0Cache.get(pairAddress)!;
+          const [aiusReserve, tokenReserve] =
+            token0 === erc20Token ? [reserve1, reserve0] : [reserve0, reserve1];
+
+          const aius = parseFloat(formatUnits(aiusReserve, 18));
+          const tokens = parseFloat(formatUnits(tokenReserve, 18));
+          if (tokens > 0) price = aius / tokens;
+
+          tier = calculatedAgentTier(aius);
         }
       } else {
-        const data = await contract.getAiusAndOwed(tokenId, CONTRACT_ADDRESS);
-        const [aius, owed] = (data as [bigint, bigint]) || [BigInt(0), BigInt(0)];
-        const formattedAius = formatUnits(aius, 18)
-        tier = { name: "None", level: 0, stakedAIUS: Number(formattedAius) } as AgentTier;
+        const [aius] = (await contract.getAiusAndOwed(tokenId, CONTRACT_ADDRESS)) || [BigInt(0)];
+        tier = {
+          name: "None",
+          level: 0,
+          stakedAIUS: Number(formatUnits(aius, 18)),
+        };
       }
+    } catch (err) {
+      const reason = (err as any)?.revert?.args?.[0] ?? (err as any)?.reason;
+      if (reason === "Pair not created") {
+        console.warn(`Pair not created for token ${tokenId}`);
+      } else {
+         console.warn(`Failed to calculate price or tier for token ${tokenId}`, err);
+      }
+    }
 
-      const [
-        name,
-        description,
-        image,
-        vrmUrl,
-        bgUrl,
-        tags,
-        agentCategory,
+    const [
+      name, description, image, vrmUrl, bgUrl,
+      tags, agentCategory, chatbotBackend,
+      ttsBackend, sttBackend, visionBackend,
+    ] = metadata;
+
+    fetchedAgents.push({
+      id: `${tokenId}`,
+      name: name || "Unknown",
+      token: "AINFT",
+      description: description || "No description available",
+      price,
+      status: "status",
+      avatar: image,
+      category: agentCategory || "All Agents",
+      tags: tags?.split(",") || [],
+      tier,
+      vrmUrl,
+      bgUrl,
+      config: {
         chatbotBackend,
         ttsBackend,
         sttBackend,
         visionBackend,
-      ] = metadata;
+        amicaLifeBackend: "amicaLife",
+      },
+    });
+  }
 
-      return {
-        id: `${tokenId}`,
-        name: name || "Unknown",
-        token: "AINFT",
-        description: description || "No description available",
-        price,
-        status: "status",
-        avatar: image,
-        category: agentCategory || "All Agents",
-        tags: tags?.split(",") || [],
-        tier: tier as AgentTier,
-        vrmUrl,
-        bgUrl,
-        config: {
-          chatbotBackend,
-          ttsBackend,
-          sttBackend,
-          visionBackend,
-          amicaLifeBackend: "amicaLife",
-        },
-      } satisfies Agent;
-    }),
-  );
+  // Update localStorage
+  const updatedCache = { ...agentsCache };
+  const updatedTimestamps = { ...timestamps };
 
-  fetchedAgents.push(...(results.filter(Boolean) as Agent[]));
+  for (const agent of fetchedAgents) {
+    updatedCache[agent.id] = agent;
+    updatedTimestamps[agent.id] = now;
+  }
+
+  localStorage.setItem("agents", JSON.stringify(updatedCache));
+  localStorage.setItem("agent_timestamps", JSON.stringify(updatedTimestamps));
+
+  return agentId !== undefined
+    ? updatedCache[String(agentId)] || null
+    : Object.values(updatedCache);
 }
 
 
-  const cachedAgents = cachedData ? (JSON.parse(cachedData) as Agent[]) : [];
-  const updatedAgents = mergeAgents(cachedAgents, fetchedAgents);
-
-  localStorage.setItem("agents", JSON.stringify(updatedAgents));
-  localStorage.setItem("agents_timestamp", now.toString());
-
-  return updatedAgents;
-}
-
+/**
+ * Merges two lists of agents based on unique ID, ensuring newer data overwrites old.
+ */
 function mergeAgents(cached: Agent[], fetched: Agent[]): Agent[] {
   const map = new Map<string, Agent>();
   [...cached, ...fetched].forEach((agent) => map.set(agent.id, agent));

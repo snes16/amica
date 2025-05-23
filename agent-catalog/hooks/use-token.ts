@@ -4,6 +4,7 @@ import { ERC721_ABI } from "@/utils/abi/erc721";
 import { ERC20_ABI } from "@/utils/abi/erc20";
 import { UNIPAIR_ABI } from "@/utils/abi/uniswapPair";
 import { useQuery } from "@tanstack/react-query";
+import { getMainContract, getUniswapPairContract } from "@/lib/provider";
 
 interface TokenStats {
   marketCap: number;
@@ -63,15 +64,7 @@ export function useTokens(tokenId: number) {
 
 async function fetchTokenStats(tokenId: number) {
   try {
-    if (!CONTRACT_ADDRESS) {
-      throw new Error("Contract address is not defined.");
-    }
-
-    const nftContract = new ethers.Contract(
-      CONTRACT_ADDRESS,
-      ERC721_ABI,
-      provider,
-    );
+    const nftContract = getMainContract();
     const [erc20Token, totalSupply, reserve0, reserve1, pairAddress] =
       await nftContract.getTokenData(tokenId);
 
@@ -81,11 +74,7 @@ async function fetchTokenStats(tokenId: number) {
     if (!erc20Token || !pairAddress)
       throw new Error("Invalid token data received.");
 
-    const pairContract = new ethers.Contract(
-      pairAddress,
-      UNIPAIR_ABI,
-      provider,
-    );
+    const pairContract = getUniswapPairContract(pairAddress);
     const tokenContract = new ethers.Contract(erc20Token, ERC20_ABI, provider);
 
     const [token0, swapFilter, transferFilter] = await Promise.all([
@@ -236,7 +225,7 @@ async function fetchTokenStats(tokenId: number) {
     const reason = (error as any)?.revert?.args?.[0] ?? (error as any)?.reason;
 
     if (reason === "Pair not created") {
-      throw reason;
+      throw "Pair not created";
     } else {
       console.error("Error fetching token stats:", error);
       throw error;

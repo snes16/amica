@@ -11,6 +11,7 @@ export const queryClient = new QueryClient({
       staleTime: CACHE_TTL, // Use the same value as in your hooks
       gcTime: CACHE_TTL, // Use the same time for garbage collection
       refetchOnWindowFocus: false, // Don't refetch when window regains focus
+      refetchOnMount: false,
     },
   },
 });
