@@ -58,7 +58,7 @@ export async function fetchAgents(agentId?: number): Promise<Agent[] | Agent | n
     const idStr = String(agentId);
     const timestamp = timestamps[idStr];
     if (agentsCache[idStr] && timestamp && now - timestamp < CACHE_TTL) {
-      console.log("Using cached single agent data");
+      console.log(`Using cached for agent ${agentId}`);
       return agentsCache[idStr];
     }
   } else {
@@ -67,7 +67,7 @@ export async function fetchAgents(agentId?: number): Promise<Agent[] | Agent | n
       agentsCache[id] && now - timestamp < CACHE_TTL
     );
     if (Object.keys(agentsCache).length && allValid) {
-      console.log("Using cached agents data");
+      console.log("Using all cached agents data");
       return Object.values(agentsCache);
     }
   }

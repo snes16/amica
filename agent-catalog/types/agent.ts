@@ -1,3 +1,5 @@
+import { CheckKey, Status } from "@/components/diagnosis-result"
+
 export interface Agent {
   id: string
   name: string
@@ -22,5 +24,6 @@ export interface Agent {
     visionBackend: string
     amicaLifeBackend: string
   }
+  diagnosisResult?: Record<CheckKey, Status>
 }
 

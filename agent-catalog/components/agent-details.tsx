@@ -22,7 +22,6 @@ import { formatUnits } from "ethers";
 import { ERC20_ABI } from "@/utils/abi/erc20";
 import { AgentVrmDiagnosis } from "./agent-diagnosis";
 import { useRouter } from 'next/navigation';
-import { forma } from "wagmi/chains";
 
 interface AgentDetailsProps {
   agent: Agent;
@@ -112,7 +111,9 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
   if (error && !isPairNotCreated) {
     return (
       <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-sm border-b">
-        <div className="p-4 text-red-500">Error loading agents: {error.message}</div>
+        <div className="p-4 text-red-500">
+          Error loading agents: {typeof error === "object" && error !== null && "message" in error ? (error as Error).message : String(error)}
+        </div>
       </div>
     );
   }
@@ -150,7 +151,7 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
             />
 
             {!isPairNotCreated && (<PriceChart priceHistory={isPairNotCreated ? [] : priceHistory} />)}
-            <AgentVrmDiagnosis vrmUrl={agent.vrmUrl} agentId={agent.id} agentConfig={agent.config}/>
+            <AgentVrmDiagnosis agent={agent} index={Number(agent.id)}/>
           </div>
           <div className="space-y-8">
             <div className="flex justify-center space-x-4 mb-8">

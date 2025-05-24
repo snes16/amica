@@ -2,7 +2,7 @@
 import { QueryClient } from "@tanstack/react-query";
 
 // Define constants that can be imported elsewhere
-export const CACHE_TTL = 3 * 60 * 1000; // 3 minutes in milliseconds
+export const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Create a QueryClient with default options
 export const queryClient = new QueryClient({

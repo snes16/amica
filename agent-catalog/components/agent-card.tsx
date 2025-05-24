@@ -9,9 +9,7 @@ import Image from "next/image"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useDiagnosisRunner } from "@/hooks/use-diagnosis"
-import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react"
-import { CACHE_TTL } from "@/lib/query-client"
+import { useEffect, useRef } from "react"
 
 interface AgentCardProps {
   agent: Agent
@@ -22,33 +20,15 @@ const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 
 export function AgentCard({ agent, index }: AgentCardProps) {
   const { status, checking, handleDiagnosis } = useDiagnosisRunner(agent, index);
-  const queryClient = useQueryClient();
   const hasChecked = useRef(false);
 
   // Check agent status on mount
   useEffect(() => {
-    const cachedTimestamp = localStorage.getItem("agents_timestamp");
-    const now = Date.now();
-    
-    // Cache status for TTL time
-    if (!hasChecked.current && cachedTimestamp && now - parseInt(cachedTimestamp, 10) < CACHE_TTL) {
+    if (!hasChecked.current) {
       handleDiagnosis();
       hasChecked.current = true;
     }
   }, []);
-
-  // Update the agent status in the query cache when it changes
-  useEffect(() => {
-    if (!status) return;
-
-    queryClient.setQueryData(["agents"], (old: Agent[] = []) =>
-      old.map((a) =>
-        a.id === agent.id
-          ? { ...a, status } // update only the matching agent
-          : a
-      )
-    );
-  }, [status]);
 
   return (
     <motion.div
