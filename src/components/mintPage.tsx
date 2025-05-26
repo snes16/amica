@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { config, defaults } from '@/utils/config';
 import { FilePond, registerPlugin } from 'react-filepond';
-import { hashFile } from "@/utils/fileUtils";
+import { encodeAgentId, hashFile } from "@/utils/fileUtils";
 import { TagsInput } from '@/components/tagsInput';
 import { FormRow } from '@/components/settings/common';
 
@@ -200,6 +200,12 @@ export default function MintingComponent({
 
     // Handle transaction receipt
     useEffect(() => {
+        const handleTokenId = async (tokenIdHex: string) => {
+            const tokenId = parseInt(tokenIdHex, 16);
+            const shortId = encodeAgentId(tokenId);
+            setAgentId(shortId);
+        };
+
         if (receipt) {
             setTxReceipt(receipt);
             setTxStatus('confirmed');
@@ -212,8 +218,7 @@ export default function MintingComponent({
                 });
 
                 if (erc20CreatedEvent && erc20CreatedEvent.topics.length >= 2) {
-                    const tokenId = parseInt(erc20CreatedEvent.topics[1]!, 16);
-                    setAgentId(tokenId.toString());
+                    handleTokenId(erc20CreatedEvent.topics[1]!);
                 } else {
                     // Fall back to Transfer event from ERC721 mint
                     const transferEvent = receipt.logs.find((log: any) => {
@@ -223,15 +228,14 @@ export default function MintingComponent({
                     });
 
                     if (transferEvent && transferEvent.topics.length >= 3) {
-                        const tokenId = parseInt(transferEvent.topics[3]!, 16);
-                        setAgentId(tokenId.toString());
+                        handleTokenId(transferEvent.topics[3]!);
                     } else {
-                        setAgentId(aid?.toString() || '');
+                        aid != undefined ? setAgentId(encodeAgentId(Number(aid))) : null;
                     }
                 }
             } catch (e) {
                 console.error("Error parsing receipt:", e);
-                setAgentId(aid?.toString() || '');
+                aid != undefined ? setAgentId(encodeAgentId(Number(aid))) : null;
             }
         }
     }, [receipt, aid]);
@@ -270,19 +274,19 @@ export default function MintingComponent({
             const lateAssignValues = [
                 characterData.name,
                 characterData.description,
+                mintData.thumbUrl,
                 characterData.bgUrl,
                 characterData.youtubeVideoId,
                 characterData.vrmUrl,
                 characterData.animationUrl,
                 characterData.systemPrompt,
                 characterData.visionSystemPrompt,
-                mintData.thumbUrl,
                 mintData.tags.join(','),
                 mintData.agentCategory
             ];
 
-            const keysList = [...configKeys, ...lateAssignKeys];
-            const valuesList = [...configValues, ...lateAssignValues];
+            const keysList = [...configKeys, ...lateAssignKeys, "agent_id"];
+            const valuesList = [...configValues, ...lateAssignValues, agentId];
 
             // Validate inputs before calling the contract
             if (keysList.length !== valuesList.length) {

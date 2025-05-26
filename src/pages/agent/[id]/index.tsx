@@ -54,8 +54,9 @@ import { VerticalSwitchBox } from "@/components/switchBox"
 import { TimestampedPrompt } from "@/features/amicaLife/eventHandler";
 
 import { useRouter } from "next/router";
-import { useAccount, useWaitForTransactionReceipt, useReadContract} from 'wagmi';
+import { useAccount, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { abi } from "@/utils/abi";
+import { decodeAgentId, encodeAgentId } from "@/utils/fileUtils";
 
 const m_plus_2 = M_PLUS_2({
   variable: "--font-m-plus-2",
@@ -86,7 +87,7 @@ export default function Agent() {
   const [assistantMessage, setAssistantMessage] = useState("");
   const [userMessage, setUserMessage] = useState("");
   const [shownMessage, setShownMessage] = useState<Role>("system");
-  const [subconciousLogs, setSubconciousLogs] = useState<TimestampedPrompt[]>([]);  
+  const [subconciousLogs, setSubconciousLogs] = useState<TimestampedPrompt[]>([]);
 
   // showContent exists to allow ssr
   // otherwise issues from usage of localStorage and window will occur
@@ -109,8 +110,10 @@ export default function Agent() {
   const { isConnected } = useAccount();
 
   // Move the contract read outside of the function
-  const tokenId = router.query.id ? parseInt(router.query.id as string, 10) : NaN;
-  
+  const tokenId: number = typeof router.query.id === 'string'
+    ? decodeAgentId(router.query.id)
+    : NaN;
+
   // Define the keys to filter
   const filterKeys = [
     "tts_muted", "autosend_from_mic", "wake_word_enabled", "wake_word",
@@ -121,43 +124,51 @@ export default function Agent() {
 
   // Filter and get the relevant defaults
   const keysList = Object.keys(defaults).filter(key => !filterKeys.includes(key));
-  
+
   const { data: agentData, error: readError } = useReadContract({
     abi,
     address: CONTRACT_ADDRESS,
     functionName: 'getMetadata',
     args: [tokenId, keysList]
   });
-  
+
   useEffect(() => {
     async function processCharacterData() {
       if (!isConnected || isNaN(tokenId) || !agentData) {
+        setError(true);
         return;
       }
-      
+
+      // Check if all values in agentData are empty strings
+      if (Array.isArray(agentData) && agentData.every(val => val === "")) {
+        setError(true);
+        console.error("No data found for this agent. Please check the token ID or ensure the agent has been configured.");
+        return;
+      }
+
       try {
         // Map the fetched data to config
         const configs: Record<string, string> = keysList.reduce((acc: Record<string, string>, key, index) => {
-          acc[key] = (agentData as any)[index]; 
+          acc[key] = (agentData as any)[index];
           return acc;
         }, {});
-        
+
         // Handle error state
         if (readError || !configs) {
           setError(true);
           return;
         }
-        
+
         // Update document style based on config
         if (configs.bg_color) {
           document.body.style.backgroundColor = configs.bg_color;
         } else if (configs.bg_url) {
           document.body.style.backgroundImage = `url(${configs.bg_url})`;
         }
-        
+
         // Sync agent configuration
         syncAgentConfig(configs);
-        
+
         // Set loaded state after all is done
         setLoaded(true);
       } catch (err) {
@@ -165,9 +176,9 @@ export default function Agent() {
         setError(true);
       }
     }
-    
+
     processCharacterData();
-    
+
   }, [agentData, isConnected, tokenId, keysList, readError, loaded]);
 
   function toggleTTSMute() {
@@ -447,7 +458,7 @@ export default function Agent() {
       <AddToHomescreen />
 
       <Alert />
-      
+
     </div>
   );
 }
