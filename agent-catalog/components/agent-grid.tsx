@@ -146,7 +146,7 @@ export function AgentGrid({ agents }: AgentGridProps) {
 
             ) : (
               agents.map((agent, index) => (
-                <AgentCard key={agent.id} agent={agent} index={index} />
+                <AgentCard key={agent.agentId} agent={agent} index={index} />
               ))
             )}
 

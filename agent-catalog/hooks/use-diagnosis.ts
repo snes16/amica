@@ -69,7 +69,7 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
     async (useCache: boolean = true) => {
       setChecking(true);
       const now = Date.now();
-      const idStr = String(index);
+      const idStr = agent.agentId;
 
       try {
         // Attempt to use cached results if enabled
@@ -78,7 +78,7 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
           const cachedTimestamp = getCachedTimestamp(idStr);
 
           if (cachedAgent && cachedTimestamp && now - cachedTimestamp < CACHE_TTL) {
-            console.log(`Using cached results for agent ${index}`);
+            console.log(`Using cached diagnosis for agent ${cachedAgent.agentId}`);
             setStatus(cachedAgent.status);
             setResults(cachedAgent.diagnosisResult || initialResults);
             setChecking(false);
@@ -111,8 +111,8 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
           diagnosisResult: tempResults,
         };
 
-        updateAgentCache(idStr, updatedAgent);
-        updateTimestampCache(idStr, now);
+        updateAgentCache(agent.agentId, updatedAgent);
+        updateTimestampCache(agent.agentId, now);
       } catch (err) {
         console.error("Diagnosis process failed:", err);
       } finally {

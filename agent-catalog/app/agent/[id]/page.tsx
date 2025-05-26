@@ -5,7 +5,7 @@ import { AgentDetails } from "@/components/agent-details";
 import { Agent } from "@/types/agent";
 
 export default function AgentPageContent({ params }: { params: { id: string } }) {
-  const { agents, loading, error } = useAgents(Number(params.id)) as {
+  const { agents, loading, error } = useAgents(params.id) as {
     agents: Agent;
     loading: boolean;
     error: string | null;

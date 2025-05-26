@@ -2,6 +2,7 @@ import { CheckKey, Status } from "@/components/diagnosis-result"
 
 export interface Agent {
   id: string
+  agentId: string
   name: string
   token: string
   description: string

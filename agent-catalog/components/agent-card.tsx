@@ -91,7 +91,7 @@ export function AgentCard({ agent, index }: AgentCardProps) {
               <MessageSquare className="h-4 w-4 mr-2" />
               Chat
             </Button>
-            <Link href={`/agent/${agent.id}`}>
+            <Link href={`/agent/${agent.agentId}`}>
               <Button
                 variant="outline"
                 size="sm"

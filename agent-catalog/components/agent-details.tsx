@@ -158,7 +158,7 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
               <Button
                 className="bg-blue-500 hover:bg-blue-600 text-white font-roboto-mono"
                 onClick={() =>
-                  window.open(`${AMICA_URL}/agent/${agent.id}`, "_blank", "noopener,noreferrer")
+                  window.open(`${AMICA_URL}/agent/${agent.agentId}`, "_blank", "noopener,noreferrer")
                 }
                 disabled={!diagnosisPassed}
                 title={!diagnosisPassed ? "Chat is disabled: Agent is inactive." : ""}

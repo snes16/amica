@@ -11,20 +11,21 @@ import {
   getMainEthcallContract,
   getProvider,
 } from "@/lib/provider";
+import { decodeAgentId } from "@/utils/fileUtils";
 
 
 // Keys used to fetch agent metadata from the contract
 const metadataKeys = [
-  "name", "description", "image", "vrm_url", "bg_url",
-  "tags", "agent_category", "chatbot_backend",
-  "tts_backend", "stt_backend", "vision_backend",
+  "agent_id", "name", "description", "image", "vrm_url", 
+  "bg_url", "tags", "agent_category", "chatbot_backend",
+  "tts_backend", "stt_backend", "vision_backend", 
 ];
 
 /**
  * Custom React hook to fetch and manage agents.
  * Uses React Query for async data fetching with caching support.
  */
-export function useAgents(agentId?: number) {
+export function useAgents(agentId?: string) {
   const {
     data: agents = [],
     isLoading: loading,
@@ -45,7 +46,7 @@ export function useAgents(agentId?: number) {
  * Fetches all AI agents from the blockchain.
  * Uses localStorage for basic TTL caching to avoid redundant on-chain reads.
  */
-export async function fetchAgents(agentId?: number): Promise<Agent[] | Agent | null> {
+export async function fetchAgents(agentId?: string): Promise<Agent[] | Agent | null> {
   const agentsCacheRaw = localStorage.getItem("agents");
   const timestampsRaw = localStorage.getItem("agent_timestamps");
 
@@ -55,11 +56,10 @@ export async function fetchAgents(agentId?: number): Promise<Agent[] | Agent | n
 
   // Check TTL if agentId is specified
   if (agentId !== undefined) {
-    const idStr = String(agentId);
-    const timestamp = timestamps[idStr];
-    if (agentsCache[idStr] && timestamp && now - timestamp < CACHE_TTL) {
-      console.log(`Using cached for agent ${agentId}`);
-      return agentsCache[idStr];
+    const timestamp = timestamps[agentId];
+    if (agentsCache[agentId] && timestamp && now - timestamp < CACHE_TTL) {
+      console.log(`Using agent ${agentId} data cached`);
+      return agentsCache[agentId];
     }
   } else {
     // Check TTL for all agents
@@ -79,7 +79,7 @@ export async function fetchAgents(agentId?: number): Promise<Agent[] | Agent | n
   const ethcallProvider = await getEthcallProvider();
 
   const tokenIds = agentId !== undefined
-    ? [agentId]
+    ? [decodeAgentId(agentId)]
     : Array.from({ length: Number(await contract.tokenIdCounter()) }, (_, i) => i);
 
   const metadataCalls = tokenIds.map((id) => ethcallContract.getMetadata(id, metadataKeys));
@@ -135,20 +135,21 @@ export async function fetchAgents(agentId?: number): Promise<Agent[] | Agent | n
     } catch (err) {
       const reason = (err as any)?.revert?.args?.[0] ?? (err as any)?.reason;
       if (reason === "Pair not created") {
-        console.warn(`Pair not created for token ${tokenId}`);
+        console.warn(`Token ${tokenId} : Pair not created`);
       } else {
          console.warn(`Failed to calculate price or tier for token ${tokenId}`, err);
       }
     }
 
     const [
-      name, description, image, vrmUrl, bgUrl,
+      agentId, name, description, image, vrmUrl, bgUrl,
       tags, agentCategory, chatbotBackend,
       ttsBackend, sttBackend, visionBackend,
     ] = metadata;
 
     fetchedAgents.push({
       id: `${tokenId}`,
+      agentId: agentId,
       name: name || "Unknown",
       token: "AINFT",
       description: description || "No description available",
@@ -175,15 +176,15 @@ export async function fetchAgents(agentId?: number): Promise<Agent[] | Agent | n
   const updatedTimestamps = { ...timestamps };
 
   for (const agent of fetchedAgents) {
-    updatedCache[agent.id] = agent;
-    updatedTimestamps[agent.id] = now;
+    updatedCache[agent.agentId] = agent;
+    updatedTimestamps[agent.agentId] = now;
   }
 
   localStorage.setItem("agents", JSON.stringify(updatedCache));
   localStorage.setItem("agent_timestamps", JSON.stringify(updatedTimestamps));
 
   return agentId !== undefined
-    ? updatedCache[String(agentId)] || null
+    ? updatedCache[agentId] || null
     : Object.values(updatedCache);
 }
 
