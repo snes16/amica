@@ -19,6 +19,7 @@ import { abi } from '@/utils/abi';
 import { id } from 'ethers';
 
 import type { CharacterData, VrmState } from '@/pages/share';
+import { CheckBoxGroup } from './checkBoxGroup';
 
 registerPlugin(
     FilePondPluginImagePreview,
@@ -34,6 +35,13 @@ export interface MintCharacterData {
 export interface MintFileStates {
     thumbFiles: File[];
 }
+
+const integrationOptions = [
+    { label: "Brain", value: "brain" },
+    { label: "Virtuals", value: "virtuals" },
+    { label: "EACC", value: "eacc" },
+    { label: "UOS", value: "uos" },
+];
 
 const agentCategories = [
     { key: "all", label: "All Agents" },
@@ -89,6 +97,52 @@ export default function MintingComponent({
     const [isMinting, setIsMinting] = useState(false);
     const [showConfigs, setShowConfigs] = useState(false);
     const [filteredDefault, setFilterDefault] = useState<Record<string, any>>({});
+    const [selectedIntegration, setSelectedIntegration] = useState<string[]>([]);
+    const [integrations, setIntegrations] = useState<Record<string, { enabled: boolean; url: string }>>({
+        brain: { enabled: false, url: '' },
+        virtuals: { enabled: false, url: '' },
+        eacc: { enabled: false, url: '' },
+        uos: { enabled: false, url: '' },
+    });
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+    const isValidUrl = (url: string) => {
+        try {
+            new URL(url);
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
+    const handleIntegrationToggle = (keys: string[]) => {
+        setSelectedIntegration(keys);
+        setIntegrations(prev =>
+            Object.fromEntries(
+                Object.entries(prev).map(([key, value]) => [
+                    key,
+                    { ...value, enabled: keys.includes(key) },
+                ])
+            )
+        );
+    };
+
+    const handleIntegrationUrlChange = (key: string, value: string) => {
+        // Validate the URL
+        if (value.trim() === '' || isValidUrl(value)) {
+            setFormErrors(prev => ({ ...prev, [key]: '' }));
+        } else {
+            setFormErrors(prev => ({ ...prev, [key]: 'Invalid URL' }));
+        }
+
+        setIntegrations(prev => ({
+            ...prev,
+            [key]: {
+                ...prev[key],
+                url: value,
+            },
+        }));
+    };
 
     // Contract configuration
     const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS as `0x${string}`;
@@ -259,6 +313,14 @@ export default function MintingComponent({
         setTxError(null);
 
         try {
+            // Validate enabled integrations have URLs
+            for (const [key, { enabled, url }] of Object.entries(integrations)) {
+                if (enabled && !url) {
+                    alert(`Please enter a URL for ${key}`);
+                    return;
+                }
+            }
+
             // Filter and prepare config-based defaults
             const filteredDefaults = Object.fromEntries(
                 Object.entries(defaults)
@@ -285,8 +347,17 @@ export default function MintingComponent({
                 mintData.agentCategory
             ];
 
-            const keysList = [...configKeys, ...lateAssignKeys, "agent_id"];
-            const valuesList = [...configValues, ...lateAssignValues, agentId];
+            const selectedIntegrations = Object.entries(integrations)
+                .filter(([_, val]) => val.enabled)
+                .reduce((acc, [key, val]) => {
+                    acc[key] = val.url;
+                    return acc;
+                }, {} as Record<string, string>);
+            const integrationKeys = Object.keys(selectedIntegrations);
+            const integrationValues = Object.values(selectedIntegrations);
+
+            const keysList = [...configKeys, ...lateAssignKeys, ...integrationKeys, "agent_id"];
+            const valuesList = [...configValues, ...lateAssignValues, ...integrationValues, agentId];
 
             // Validate inputs before calling the contract
             if (keysList.length !== valuesList.length) {
@@ -368,6 +439,40 @@ export default function MintingComponent({
                 setTags={(tags) => updateMintData({ tags })}
                 readOnly={isFormReadOnly}
             />
+
+            {/* Integration section */}
+            <div className="col-span-3 max-w-md rounded-xl mt-4">
+                <label className="block text-sm font-medium leading-6 text-gray-900">Integrations</label>
+
+                <CheckBoxGroup
+                    options={integrationOptions}
+                    selectedValues={selectedIntegration}
+                    onChange={handleIntegrationToggle}
+                    disabled={isFormReadOnly}
+                />
+
+                {selectedIntegration.map((key) => {
+                    const integration = integrations[key];
+                    if (!integration?.enabled) return null;
+
+                    return (
+                        <div key={key} className="mt-4">
+                            <input
+                                type="url"
+                                className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                                value={integration.url}
+                                readOnly={isFormReadOnly}
+                                onChange={(e) => handleIntegrationUrlChange(key, e.target.value)}
+                                required
+                                placeholder={`Enter URL for ${integrationOptions.find(opt => opt.value === key)?.label || key}`}
+                            />
+                            {formErrors[key] && (
+                                <p className="text-red-500 text-xs mt-1">{formErrors[key]}</p>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
 
             {/* Category Selection */}
             <div className='mt-4'>

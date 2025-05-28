@@ -9,7 +9,7 @@ import Image from "next/image"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useDiagnosisRunner } from "@/hooks/use-diagnosis"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 
 interface AgentCardProps {
   agent: Agent
@@ -85,8 +85,8 @@ export function AgentCard({ agent, index }: AgentCardProps) {
               size="sm"
               className="w-full font-roboto-mono border-neon-blue/50 text-neon-blue hover:bg-neon-blue/20 hover:text-white transition-colors"
               onClick={() => window.open(`${AMICA_URL}/agent/${agent.id}`, "_blank", "noopener,noreferrer")}
-              disabled={agent.status !== "active"}
-              title={agent.status !== "active" ? "Chat is disabled: Agent is inactive." : ""}
+              disabled={status !== "active"}
+              title={status !== "active" ? "Chat is disabled: Agent is inactive." : ""}
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               Chat

@@ -31,7 +31,12 @@ export function AgentVrmDiagnosis({
   return (
     <div className="w-full p-6 border border-gray-200 rounded-3xl bg-white shadow-xl flex flex-col justify-between">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-        <h2 className="text-2xl font-orbitron text-gray-800 mb-2 md:mb-0">{`Talent Show Score: ${results["overall"] || agent.talentShowScore || "N/A"}`}</h2>
+        <h2 className="text-2xl font-orbitron text-gray-800 mb-2 md:mb-0">
+          Talent Show Score:{" "}
+          <span className="font-bold">
+            {results["overall"] || agent.talentShowScore || "N/A"}
+          </span>
+        </h2>
         <Button
           onClick={() => handleDiagnosis(false)}
           disabled={checking}
