@@ -1,4 +1,5 @@
 import { ChatbotBackend } from "@/types/backend";
+import { EvaluationResult } from "./diagnosisScript";
 
 const additionalUrls = {
   openai: "/v1/chat/completions",
@@ -13,23 +14,46 @@ const prompt = [{ role: "user", content: "Hello" }];
 const promptBuild = "User: Hello\n";
 
 // Utility to safely call fetch
-async function safeFetch(fullUrl: string, options: RequestInit): Promise<"pass" | "fail"> {
+async function safeFetch(fullUrl: string, options: RequestInit): Promise<EvaluationResult> {
+  const start = performance.now();
   try {
     const res = await fetch(fullUrl, options);
-    return res.ok ? "pass" : "fail";
+    const end = performance.now();
+    const duration = end - start;
+    const status = res.ok ? "pass" : "fail";
+    const score = calculateScore({ status, duration });
+
+    return { status, score };
   } catch {
-    return "fail";
+    const end = performance.now();
+    const duration = end - start;
+    return { status: "fail", score: calculateScore({ status: "fail", duration }) };
   }
+}
+
+// Score calculation logic
+function calculateScore({
+  status,
+  duration,
+}: {
+  status: "pass" | "fail";
+  duration: number;
+}): number {
+  console.log(`Duration: ${duration}ms, Status: ${status}`);
+  let score = 0;
+  if (status === "pass") score += 50;
+  if (duration < 5000) score += 50 * ((5000 - duration) / 5000); 
+  return Math.round(score);
 }
 
 // Individual backend handlers
 const backendHandlers: Record<
   string,
-  (params: ChatbotBackend) => Promise<"pass" | "fail">
+  (params: ChatbotBackend) => Promise<EvaluationResult>
 > = {
   openai: async (params) => {
     const { openai_apikey, openai_model, openai_url } = params.openai || {};
-    if (!openai_apikey || !openai_url || !openai_model) return "fail";
+    if (!openai_apikey || !openai_url || !openai_model) return {status: "fail", score: 0};
 
     return await safeFetch(`${openai_url}${additionalUrls.openai}`, {
       method: "POST",
@@ -50,7 +74,7 @@ const backendHandlers: Record<
 
   llamacpp: async (params) => {
     const { llamacpp_url } = params.llamacpp || {};
-    if (!llamacpp_url) return "fail";
+    if (!llamacpp_url) return {status: "fail", score: 0};
 
     return await safeFetch(`${llamacpp_url}${additionalUrls.llamacpp}`, {
       method: "POST",
@@ -71,7 +95,7 @@ const backendHandlers: Record<
 
   ollama: async (params) => {
     const { ollama_url, ollama_model } = params.ollama || {};
-    if (!ollama_url) return "fail";
+    if (!ollama_url) return {status: "fail", score: 0};
 
     return await safeFetch(`${ollama_url}${additionalUrls.ollama}`, {
       method: "POST",
@@ -82,7 +106,7 @@ const backendHandlers: Record<
 
   koboldai: async (params) => {
     const { koboldai_url, koboldai_use_extra } = params.koboldai || {};
-    if (!koboldai_url) return "fail";
+    if (!koboldai_url) return {status: "fail", score: 0};
 
     const path = koboldai_use_extra === "true" ? additionalUrls.kobolda_extra : additionalUrls.koboldai;
 
@@ -95,7 +119,7 @@ const backendHandlers: Record<
 
   openrouter: async (params) => {
     const { openrouter_apikey, openrouter_model, openrouter_url } = params.openrouter || {};
-    if (!openrouter_apikey || !openrouter_model || !openrouter_url) return "fail";
+    if (!openrouter_apikey || !openrouter_model || !openrouter_url) return {status: "fail", score: 0};
 
     return await safeFetch(`${openrouter_url}${additionalUrls.openrouter}`, {
       method: "POST",
@@ -113,15 +137,15 @@ const backendHandlers: Record<
     });
   },
 
-  windowai: async () => "pass",
+  windowai: async () => { return { status: "pass", score: 100 }},
 };
 
 // Dispatcher function
 export async function chatbotDiagnosis(
   backend: string,
   params: ChatbotBackend
-): Promise<string> {
+): Promise<EvaluationResult> {
   const handler = backendHandlers[backend];
-  if (!handler) return "fail";
+  if (!handler) return {status: "fail", score: 0};
   return await handler(params);
 }

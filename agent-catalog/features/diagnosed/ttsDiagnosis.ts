@@ -1,4 +1,5 @@
 import { TTSBackend } from "@/types/backend";
+import { EvaluationResult } from "./diagnosisScript";
 
 const additionalUrls = {
   elevenlabs: "?optimize_streaming_latency=0&output_format=mp3_44100_128",
@@ -14,29 +15,56 @@ const message = "Hello World";
 async function safeFetch(
   fullUrl: string,
   options?: RequestInit,
-): Promise<"pass" | "fail"> {
+): Promise<EvaluationResult> {
+  const start = performance.now();
   try {
     if (!options) {
         const res = await fetch(fullUrl);
-        return res.ok ? "pass" : "fail";
+        const end = performance.now();
+        const duration = end - start;
+        const status = res.ok ? "pass" : "fail";
+        const score = calculateScore({ status, duration });
+
+        return { status, score };
     } else {
         const res = await fetch(fullUrl, options);
-        return res.ok ? "pass" : "fail";
+        const end = performance.now();
+        const duration = end - start;
+        const status = res.ok ? "pass" : "fail";
+        const score = calculateScore({ status, duration });
+
+        return { status, score };
     }
   } catch {
-    return "fail";
+    const end = performance.now();
+    const duration = end - start;
+    return { status: "fail", score: calculateScore({ status: "fail", duration }) };
   }
+}
+
+// Score calculation logic
+function calculateScore({
+  status,
+  duration,
+}: {
+  status: "pass" | "fail";
+  duration: number;
+}): number {
+  let score = 0;
+  if (status === "pass") score += 50;
+  if (duration < 2000) score += 50 * ((2000 - duration) / 2000); 
+  return Math.round(score);
 }
 
 // Individual backend handlers
 const backendHandlers: Record<
   string,
-  (params: TTSBackend) => Promise<"pass" | "fail">
+  (params: TTSBackend) => Promise<EvaluationResult>
 > = {
   elevenlabs: async (params) => {
     const { elevenlabs_apikey, elevenlabs_voiceid, elvenlabs_model } = params.elvenlabs || {};
 
-    if (!elevenlabs_apikey || !elevenlabs_voiceid || !elvenlabs_model) return "fail";
+    if (!elevenlabs_apikey || !elevenlabs_voiceid || !elvenlabs_model) return {status: "fail", score: 0};
     const url = `https://api.elevenlabs.io/v1/text-to-speech/${elevenlabs_voiceid}`;
 
     return await safeFetch(`${url}${additionalUrls.elevenlabs}`, {
@@ -61,7 +89,7 @@ const backendHandlers: Record<
 
   openai_tts: async (params) => {
     const { openai_tts_apikey, openai_tts_url, openai_tts_model, openai_tts_voice } = params.openai_tts || {};
-    if (!openai_tts_model || !openai_tts_apikey || !openai_tts_url || !openai_tts_voice) return "fail";
+    if (!openai_tts_model || !openai_tts_apikey || !openai_tts_url || !openai_tts_voice) return {status: "fail", score: 0};
 
     return await safeFetch(`${openai_tts_url}${additionalUrls.openai_tts}`, {
       method: "POST",
@@ -110,7 +138,7 @@ const backendHandlers: Record<
 
   piper: async (params) => {
     const { piper_url } = params.piper || {};
-    if (!piper_url) return "fail";
+    if (!piper_url) return {status: "fail", score: 0};
     const newUrl = new URL(piper_url);
     newUrl.searchParams.append('text', message);
 
@@ -119,7 +147,7 @@ const backendHandlers: Record<
 
   coquiLocal: async (params) => {
     const { coquiLocal_url, coquiLocal_voiceid } = params.coquiLocal || {};
-    if (!coquiLocal_url || !coquiLocal_voiceid) return "fail";
+    if (!coquiLocal_url || !coquiLocal_voiceid) return {status: "fail", score: 0};
 
     return await safeFetch(`${coquiLocal_url}${additionalUrls.coquiLocal}`, {
       method: "POST",
@@ -130,15 +158,15 @@ const backendHandlers: Record<
     });
   },
 
-  speecht5: async () => "pass",
+  speecht5: async () => { return {status: "pass", score: 100}; },
 };
 
 // Dispatcher function
 export async function ttsDiagnosis(
   backend: string,
   params: TTSBackend,
-): Promise<string> {
+): Promise<EvaluationResult> {
   const handler = backendHandlers[backend];
-  if (!handler) return "fail";
+  if (!handler) return {status: "fail", score: 0};
   return await handler(params);
 }

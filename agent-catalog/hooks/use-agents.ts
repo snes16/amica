@@ -18,7 +18,8 @@ import { decodeAgentId } from "@/utils/fileUtils";
 const metadataKeys = [
   "agent_id", "name", "description", "image", "vrm_url", 
   "bg_url", "tags", "agent_category", "chatbot_backend",
-  "tts_backend", "stt_backend", "vision_backend", 
+  "tts_backend", "stt_backend", "vision_backend", "brain",
+  "virtuals", "eacc", "uos"
 ];
 
 /**
@@ -143,9 +144,16 @@ export async function fetchAgents(agentId?: string): Promise<Agent[] | Agent | n
 
     const [
       agentId, name, description, image, vrmUrl, bgUrl,
-      tags, agentCategory, chatbotBackend,
-      ttsBackend, sttBackend, visionBackend,
+      tags, agentCategory, chatbotBackend, ttsBackend, 
+      sttBackend, visionBackend, brain, virtuals, eacc, uos
     ] = metadata;
+
+    // Build integrations object only with non-empty values
+    const integrations: Record<string, string> = {};
+    if (brain) integrations.brain = brain;
+    if (virtuals) integrations.virtuals = virtuals;
+    if (eacc) integrations.eacc = eacc;
+    if (uos) integrations.uos = uos;
 
     fetchedAgents.push({
       id: `${tokenId}`,
@@ -168,6 +176,7 @@ export async function fetchAgents(agentId?: string): Promise<Agent[] | Agent | n
         visionBackend,
         amicaLifeBackend: "amicaLife",
       },
+      integrations,
     });
   }
 

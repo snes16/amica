@@ -25,6 +25,13 @@ export interface Agent {
     visionBackend: string
     amicaLifeBackend: string
   }
-  diagnosisResult?: Record<CheckKey, Status>
+  integrations: {
+    brain?: string
+    virtuals?: string
+    eacc?: string
+    uos?: string
+  },
+  diagnosisResult?: Record<CheckKey, Status>,
+  talentShowScore?: string
 }
 

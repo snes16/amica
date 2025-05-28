@@ -1,4 +1,5 @@
 import { VisionBackend } from "@/types/backend";
+import { EvaluationResult } from "./diagnosisScript";
 
 const additionalUrls = {
   vision_openai: "/v1/chat/completions",
@@ -63,31 +64,58 @@ export async function loadImage(
 async function safeFetch(
   fullUrl: string,
   options?: RequestInit,
-): Promise<"pass" | "fail"> {
+): Promise<EvaluationResult> {
+  const start = performance.now();
   try {
     if (!options) {
-      const res = await fetch(fullUrl);
-      return res.ok ? "pass" : "fail";
+        const res = await fetch(fullUrl);
+        const end = performance.now();
+        const duration = end - start;
+        const status = res.ok ? "pass" : "fail";
+        const score = calculateScore({ status, duration });
+
+        return { status, score };
     } else {
-      const res = await fetch(fullUrl, options);
-      return res.ok ? "pass" : "fail";
+        const res = await fetch(fullUrl, options);
+        const end = performance.now();
+        const duration = end - start;
+        const status = res.ok ? "pass" : "fail";
+        const score = calculateScore({ status, duration });
+
+        return { status, score };
     }
   } catch {
-    return "fail";
+    const end = performance.now();
+    const duration = end - start;
+    return { status: "fail", score: calculateScore({ status: "fail", duration }) };
   }
+}
+
+// Score calculation logic
+function calculateScore({
+  status,
+  duration,
+}: {
+  status: "pass" | "fail";
+  duration: number;
+}): number {
+  let score = 0;
+  if (status === "pass") score += 50;
+  if (duration < 5000) score += 50 * ((5000 - duration) / 5000); 
+  return Math.round(score);
 }
 
 // Individual backend handlers
 const backendHandlers: Record<
   string,
-  (params: VisionBackend) => Promise<"pass" | "fail">
+  (params: VisionBackend) => Promise<EvaluationResult>
 > = {
   vision_openai: async (params) => {
     const { vision_openai_apikey, vision_openai_model, vision_openai_url } =
       params.vision_openai || {};
 
     if (!vision_openai_apikey || !vision_openai_model || !vision_openai_url)
-      return "fail";
+      return {status:"fail", score: 0};
 
     let image = await loadImage("/sample-image.jpeg");
     const messages = [
@@ -131,7 +159,8 @@ const backendHandlers: Record<
 
   vision_llamacpp: async (params) => {
     const { vision_llamacpp_url } = params.vision_llamacpp || {};
-    if (!vision_llamacpp_url) return "fail";
+    if (!vision_llamacpp_url) return {status:"fail", score: 0};
+
 
     let image = await loadImage("/sample-image.jpeg");
     const prompt = `User: Describe the image as accurately as possible`;
@@ -160,7 +189,7 @@ const backendHandlers: Record<
   vision_ollama: async (params) => {
     const { vision_ollama_url, vision_ollama_model } =
       params.vision_ollama || {};
-    if (!vision_ollama_url || !vision_ollama_model) return "fail";
+    if (!vision_ollama_url || !vision_ollama_model) return {status:"fail", score: 0};
 
     let image = await loadImage("/sample-image.jpeg");
     const messages = [
@@ -189,8 +218,8 @@ const backendHandlers: Record<
 export async function visionDiagnosis(
   backend: string,
   params: VisionBackend,
-): Promise<string> {
+): Promise<EvaluationResult> {
   const handler = backendHandlers[backend];
-  if (!handler) return "fail";
+  if (!handler) return {status:"fail", score: 0};
   return await handler(params);
 }

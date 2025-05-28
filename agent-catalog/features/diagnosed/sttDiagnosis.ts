@@ -1,5 +1,6 @@
 import { STTBackend } from "@/types/backend";
 import { WaveFile } from "wavefile";
+import { EvaluationResult } from "./diagnosisScript";
 
 const additionalUrls = {
   openai_whisper: "/v1/audio/transcriptions",
@@ -23,36 +24,63 @@ export async function loadAudioAsFloat32Array(
 async function safeFetch(
   fullUrl: string,
   options?: RequestInit,
-): Promise<"pass" | "fail"> {
+): Promise<EvaluationResult> {
+  const start = performance.now();
   try {
     if (!options) {
-      const res = await fetch(fullUrl);
-      return res.ok ? "pass" : "fail";
+        const res = await fetch(fullUrl);
+        const end = performance.now();
+        const duration = end - start;
+        const status = res.ok ? "pass" : "fail";
+        const score = calculateScore({ status, duration });
+
+        return { status, score };
     } else {
-      const res = await fetch(fullUrl, options);
-      return res.ok ? "pass" : "fail";
+        const res = await fetch(fullUrl, options);
+        const end = performance.now();
+        const duration = end - start;
+        const status = res.ok ? "pass" : "fail";
+        const score = calculateScore({ status, duration });
+
+        return { status, score };
     }
   } catch {
-    return "fail";
+    const end = performance.now();
+    const duration = end - start;
+    return { status: "fail", score: calculateScore({ status: "fail", duration }) };
   }
+}
+
+// Score calculation logic
+function calculateScore({
+  status,
+  duration,
+}: {
+  status: "pass" | "fail";
+  duration: number;
+}): number {
+  let score = 0;
+  if (status === "pass") score += 50;
+  if (duration < 2000) score += 50 * ((2000 - duration) / 2000); 
+  return Math.round(score);
 }
 
 // Individual backend handlers
 const backendHandlers: Record<
   string,
-  (params: STTBackend) => Promise<"pass" | "fail">
+  (params: STTBackend) => Promise<EvaluationResult>
 > = {
   whisper_openai: async (params) => {
     const { openai_whisper_apikey, openai_whisper_model, openai_whisper_url } =
       params.whisper_openai || {};
 
     if (!openai_whisper_apikey || !openai_whisper_model || !openai_whisper_url)
-      return "fail";
+      return {status: "fail", score: 0};
 
     let audio = await loadAudioAsFloat32Array("/sample-voice.wav");
     const wav = new WaveFile();
     wav.fromScratch(1, 16000, "32f", audio);
-    const file = new File([wav.toBuffer()], "input.wav", { type: "audio/wav" });
+    const file = new File([new Uint8Array(wav.toBuffer())], "input.wav", { type: "audio/wav" });
 
     const formData = new FormData();
     formData.append("file", file);
@@ -73,13 +101,13 @@ const backendHandlers: Record<
 
   whispercpp: async (params) => {
     const { whispercpp_url } = params.whispercpp || {};
-    if (!whispercpp_url) return "fail";
+    if (!whispercpp_url) return {status: "fail", score: 0};
 
     let audio = await loadAudioAsFloat32Array("/sample-voice.wav");
     const wav = new WaveFile();
     wav.fromScratch(1, 16000, "32f", audio);
     wav.toBitDepth("16");
-    const file = new File([wav.toBuffer()], "input.wav", { type: "audio/wav" });
+    const file = new File([new Uint8Array(wav.toBuffer())], "input.wav", { type: "audio/wav" });
 
     const formData = new FormData();
     formData.append("file", file);
@@ -93,15 +121,15 @@ const backendHandlers: Record<
     });
   },
 
-  whisper_browser: async () => "pass",
+  whisper_browser: async () => { return {status: "pass", score: 100}; }
 };
 
 // Dispatcher function
 export async function sttDiagnosis(
   backend: string,
   params: STTBackend,
-): Promise<string> {
+): Promise<EvaluationResult> {
   const handler = backendHandlers[backend];
-  if (!handler) return "fail";
+  if (!handler) return {status: "fail", score: 0};
   return await handler(params);
 }

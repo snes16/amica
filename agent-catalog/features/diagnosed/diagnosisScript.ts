@@ -6,7 +6,13 @@ import { sttDiagnosis } from "./sttDiagnosis";
 import { ttsDiagnosis } from "./ttsDiagnosis";
 import { visionDiagnosis } from "./visionDiagnosis";
 
-export async function diagnosisScript(key: string,backend: string, params: object) {
+export type EvaluationResult = {
+  status: "pass" | "fail";
+  score: number;
+};
+
+
+export async function diagnosisScript(key: string,backend: string, params: object): Promise<EvaluationResult> {
   // Debug all the backend configs
   // console.log("diagnosisScript", key, backend, params);
 
@@ -22,6 +28,6 @@ export async function diagnosisScript(key: string,backend: string, params: objec
     case "amicaLife":
       return await amicaLifeDiagnosis(backend, params as AmicaLife);
     default:
-      return "fail";
+      return {status: "fail", score: 0};
   }
 }

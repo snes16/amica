@@ -254,7 +254,7 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
             {agent.tags.length > 1 &&
               <AgentTags tags={agent.tags} />}
             <AgentTiers currentTier={agent.tier} />
-            <Integrations />
+            <Integrations integrations={agent.integrations}/>
           </div>
         </div>
       </div>

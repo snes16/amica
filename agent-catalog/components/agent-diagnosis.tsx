@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { useDiagnosisRunner } from "@/hooks/use-diagnosis";
 import { DiagnosisResult } from "./diagnosis-result";
 import { checks } from "@/components/diagnosis-result";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Agent } from "@/types/agent";
 
 interface AgentVrmDiagnosisProps {
@@ -31,13 +31,13 @@ export function AgentVrmDiagnosis({
   return (
     <div className="w-full p-6 border border-gray-200 rounded-3xl bg-white shadow-xl flex flex-col justify-between">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-        <h2 className="text-2xl font-orbitron text-gray-800 mb-2 md:mb-0">Agent Diagnosis</h2>
+        <h2 className="text-2xl font-orbitron text-gray-800 mb-2 md:mb-0">{`Talent Show Score: ${results["overall"] || agent.talentShowScore || "N/A"}`}</h2>
         <Button
           onClick={() => handleDiagnosis(false)}
           disabled={checking}
           className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-orbitron px-6 py-2 rounded-xl shadow"
         >
-          {checking ? "Loading..." : "Run Full Diagnosis"}
+          {checking ? "Loading..." : "Evaluate Agent"}
         </Button>
       </div>
 
