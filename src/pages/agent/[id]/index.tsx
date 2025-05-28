@@ -21,6 +21,8 @@ import {
   VideoCameraIcon,
   VideoCameraSlashIcon,
   WrenchScrewdriverIcon,
+  MagnifyingGlassMinusIcon,
+  MagnifyingGlassPlusIcon,
 } from "@heroicons/react/24/outline";
 import { IconBrain } from '@tabler/icons-react';
 
@@ -57,6 +59,7 @@ import { useRouter } from "next/router";
 import { useAccount, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { abi } from "@/utils/abi";
 import { decodeAgentId, encodeAgentId } from "@/utils/fileUtils";
+import { DiagnosisScript } from "@/components/diagnosisScript";
 
 const m_plus_2 = M_PLUS_2({
   variable: "--font-m-plus-2",
@@ -96,7 +99,9 @@ export default function Agent() {
   const [showChatLog, setShowChatLog] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [showChatMode, setShowChatMode] = useState(false);
-  const [showSubconciousText, setShowSubconciousText] = useState(false);
+  const [showBrain, setShowBrain] = useState(false);
+  const [brainLink, setBrainLink] = useState("");
+  const [showDiagnosis, setShowDiagnosis] = useState(false);
 
   // null indicates havent loaded config yet
   const [muted, setMuted] = useState<boolean | null>(null);
@@ -164,6 +169,9 @@ export default function Agent() {
           document.body.style.backgroundColor = configs.bg_color;
         } else if (configs.bg_url) {
           document.body.style.backgroundImage = `url(${configs.bg_url})`;
+        } else if (configs.brain !== "") {
+          setShowBrain(true);
+          setBrainLink(configs.brain);
         }
 
         // Sync agent configuration
@@ -199,17 +207,11 @@ export default function Agent() {
   };
 
   const toggleChatLog = () => {
-    toggleState(setShowChatLog, [setShowSubconciousText, setShowChatMode]);
+    toggleState(setShowChatLog, [setShowChatMode, setShowDiagnosis]);
   };
 
-  const toggleSubconciousText = () => {
-    if (subconciousLogs.length !== 0) {
-      toggleState(setShowSubconciousText, [setShowChatLog, setShowChatMode]);
-    }
-  };
-
-  const toggleChatMode = () => {
-    toggleState(setShowChatMode, [setShowChatLog, setShowSubconciousText]);
+  const toggleDiagnosis = () => {
+    toggleState(setShowDiagnosis, [setShowChatLog, setShowChatMode]);
   };
 
   useEffect(() => {
@@ -332,104 +334,35 @@ export default function Agent() {
               <span className="text-white hidden">Webcam</span>
             </div>
 
-            {/* 28px hack to force size */}
-            {/* <div className="flex flex-row items-center space-x-2 w-[28px] h-[28px]">
-              <Menu as="div">
-                <div>
-                  <Menu.Button>
-                    <LanguageIcon
-                      className="h-7 w-7 text-white opacity-50 hover:opacity-100 active:opacity-100 hover:cursor-pointer"
-                      aria-hidden="true"
-                    />
-                  </Menu.Button>
-                </div>
-                <Transition
-                  as={Fragment}
-                  enter="transition ease-out duration-100"
-                  enterFrom="transform opacity-0 scale-95"
-                  enterTo="transform opacity-100 scale-100"
-                  leave="transition ease-in duration-75"
-                  leaveFrom="transform opacity-100 scale-100"
-                  leaveTo="transform opacity-0 scale-95"
-                >
-                  <Menu.Items className="absolute left-10 -mt-8 z-10 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                    <div className="py-0">
-
-                      {Object.keys(langs).map((lng) => (
-                        <Menu.Item key={lng}>
-                          <button
-                            className={clsx(
-                              currLang === lng && 'bg-cyan-400 text-white',
-                              'group flex w-full items-center px-2 py-2 text-sm'
-                            )}
-                            onClick={() => i18n.changeLanguage(lng)}>
-                            {langs[lng].nativeName}
-                          </button>
-                        </Menu.Item>
-                      ))}
-                    </div>
-                  </Menu.Items>
-                </Transition>
-              </Menu>
-            </div> */}
-
-            {/* <div className="flex flex-row items-center space-x-2">
-              <Link
-                href="/share"
-                target={isTauri() ? '' : '_blank'}
-              >
-                <ShareIcon
-                  className="h-7 w-7 text-white opacity-50 hover:opacity-100 active:opacity-100 hover:cursor-pointer"
-                  aria-hidden="true"
-                />
-              </Link>
-              <span className="text-white hidden">Share</span>
-            </div> */}
-
-            {/* <div className="flex flex-row items-center space-x-2">
-              <Link href="/import">
-                <CloudArrowDownIcon
-                  className="h-7 w-7 text-white opacity-50 hover:opacity-100 active:opacity-100 hover:cursor-pointer"
-                  aria-hidden="true"
-                />
-              </Link>
-              <span className="text-white hidden">Import</span>
-            </div> */}
-
-            {/* <div className="flex flex-row items-center space-x-2">
-              {showSubconciousText ? (
+              {/* Integrations Brain */}
+            {showBrain && (
+              <div className="flex flex-row items-center space-x-2">
                 <IconBrain
-                  className="h-7 w-7 text-white opacity-100 hover:opacity-50 active:opacity-100 hover:cursor-pointer"
+                  className="h-7 w-7 text-white opacity-50 hover:opacity-100 active:opacity-100 hover:cursor-pointer"
                   aria-hidden="true"
                   stroke={2}
-                  onClick={toggleSubconciousText}
+                  onClick={() => window.open(brainLink, "_blank")}
+                />
+              </div>
+            )}
+
+            {/* Diagnosis Script */}
+            <div className="flex flex-row items-center space-x-2">
+              {!showDiagnosis ? (
+                <MagnifyingGlassPlusIcon
+                  className="h-7 w-7 text-white opacity-50 hover:opacity-100 active:opacity-100 hover:cursor-pointer"
+                  aria-hidden="true"
+                  onClick={toggleDiagnosis}
                 />
               ) : (
-                <IconBrain
+                <MagnifyingGlassMinusIcon
                   className="h-7 w-7 text-white opacity-50 hover:opacity-100 active:opacity-100 hover:cursor-pointer"
                   aria-hidden="true"
-                  stroke={2}
-                  onClick={toggleSubconciousText}
+                  onClick={toggleDiagnosis}
                 />
               )}
-            </div> */}
-
-            {/*<div className="flex flex-row items-center space-x-2">
-                  <CodeBracketSquareIcon
-                    className="h-7 w-7 text-white opacity-50 hover:opacity-100 active:opacity-100 hover:cursor-pointer"
-                    aria-hidden="true"
-                    onClick={() => setShowDebug(true)}
-                  />
-                  <span className="text-white hidden">Debug</span> 
-              </div>*/}
-
-            {/* <div className="flex flex-row items-center space-x-2">
-              <VerticalSwitchBox
-                value={showChatMode}
-                label={""}
-                onChange={toggleChatMode}
-              />
-            </div> */}
+              <span className="text-white hidden">Diagnosis Script</span>
+            </div>
 
           </div>
         </div>
@@ -437,8 +370,10 @@ export default function Agent() {
 
       {showChatLog && <ChatLog messages={chatLog} />}
 
+      {showDiagnosis && <DiagnosisScript/>}
+
       {/* Normal chat text */}
-      {!showSubconciousText && !showChatLog && !showChatMode && (
+      {!showChatLog && !showChatMode && (
         <>
           {shownMessage === 'assistant' && (
             <AssistantText message={assistantMessage} />
@@ -448,12 +383,6 @@ export default function Agent() {
           )}
         </>
       )}
-
-      {/* Chat mode text */}
-      {showChatMode && <ChatModeText messages={chatLog} />}
-
-      {/* Subconcious stored prompt text */}
-      {showSubconciousText && <SubconciousText messages={subconciousLogs} />}
 
       <AddToHomescreen />
 
