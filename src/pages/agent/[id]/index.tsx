@@ -56,7 +56,7 @@ import { VerticalSwitchBox } from "@/components/switchBox"
 import { TimestampedPrompt } from "@/features/amicaLife/eventHandler";
 
 import { useRouter } from "next/router";
-import { useAccount, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { Contract, JsonRpcProvider } from 'ethers';
 import { abi } from "@/utils/abi";
 import { decodeAgentId, encodeAgentId } from "@/utils/fileUtils";
 import { DiagnosisScript } from "@/components/diagnosisScript";
@@ -112,7 +112,7 @@ export default function Agent() {
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  const { isConnected } = useAccount();
+  const provider = new JsonRpcProvider(process.env.NEXT_PUBLIC_INFURA_RPC);
 
   // Move the contract read outside of the function
   const tokenId: number = typeof router.query.id === 'string'
@@ -130,19 +130,41 @@ export default function Agent() {
   // Filter and get the relevant defaults
   const keysList = Object.keys(defaults).filter(key => !filterKeys.includes(key));
 
-  const { data: agentData, error: readError } = useReadContract({
-    abi,
-    address: CONTRACT_ADDRESS,
-    functionName: 'getMetadata',
-    args: [tokenId, keysList]
-  });
+  const [agentData, setAgentData] = useState<string[] | null>(null);
+
+useEffect(() => {
+  async function fetchNFTMetadata() {
+    if (isNaN(tokenId)) {
+      setError(true);
+      return;
+    }
+
+    console.log("Featch agent data using Infura RPC")
+
+    try {
+      const contract = new Contract(CONTRACT_ADDRESS, abi, provider);
+      const data = await contract.getMetadata(tokenId, keysList);
+      setAgentData(data);
+    } catch (err) {
+      console.error("Error reading from contract:", err);
+      setError(true);
+    }
+  }
+
+  if (!agentData && !loaded) {
+    fetchNFTMetadata();
+  }
+}, [tokenId, agentData, loaded]);
 
   useEffect(() => {
     async function processCharacterData() {
-      if (!isConnected || isNaN(tokenId) || !agentData) {
+      if (isNaN(tokenId) || !agentData) {
         setError(true);
         return;
       }
+
+      console.log("Process agent data")
+
 
       // Check if all values in agentData are empty strings
       if (Array.isArray(agentData) && agentData.every(val => val === "")) {
@@ -159,7 +181,7 @@ export default function Agent() {
         }, {});
 
         // Handle error state
-        if (readError || !configs) {
+        if (!configs) {
           setError(true);
           return;
         }
@@ -187,7 +209,7 @@ export default function Agent() {
 
     processCharacterData();
 
-  }, [agentData, isConnected, tokenId, keysList, readError, loaded]);
+  }, [agentData, tokenId, keysList, loaded]);
 
   function toggleTTSMute() {
     updateConfig('tts_muted', config('tts_muted') === 'true' ? 'false' : 'true')
