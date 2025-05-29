@@ -39,7 +39,6 @@ function calculateScore({
   status: "pass" | "fail";
   duration: number;
 }): number {
-  console.log(`Duration: ${duration}ms, Status: ${status}`);
   let score = 0;
   if (status === "pass") score += 50;
   if (duration < 5000) score += 50 * ((5000 - duration) / 5000); 

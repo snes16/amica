@@ -197,12 +197,121 @@ export async function fetchAgents(agentId?: string): Promise<Agent[] | Agent | n
     : Object.values(updatedCache);
 }
 
-
 /**
- * Merges two lists of agents based on unique ID, ensuring newer data overwrites old.
+ * Fetches agent(s) data directly from the blockchain without using localStorage.
+ * This function is intended for server-side usage (e.g., SSR or API routes).
+ *
+ * @param agentId Optional agent ID to fetch a specific agent. If not provided, fetches all agents.
+ * @returns A single Agent object if `agentId` is specified, or an array of all agents otherwise.
  */
-function mergeAgents(cached: Agent[], fetched: Agent[]): Agent[] {
-  const map = new Map<string, Agent>();
-  [...cached, ...fetched].forEach((agent) => map.set(agent.id, agent));
-  return Array.from(map.values());
+export async function fetchAgentServer(agentId?: string): Promise<Agent | Agent[] | null> {
+  const provider = getProvider();
+  const contract = getMainContract();
+  const ethcallContract = getMainEthcallContract();
+  const ethcallProvider = await getEthcallProvider();
+
+  const tokenIds = agentId !== undefined
+    ? [decodeAgentId(agentId)]
+    : Array.from({ length: Number(await contract.tokenIdCounter()) }, (_, i) => i);
+
+  const metadataCalls = tokenIds.map((id) => ethcallContract.getMetadata(id, metadataKeys));
+  const metadataResults = await ethcallProvider.all(metadataCalls);
+
+  const pairContractCache = new Map<string, ethers.Contract>();
+  const token0Cache = new Map<string, string>();
+
+  const agents: Agent[] = [];
+
+  for (let i = 0; i < tokenIds.length; i++) {
+    const tokenId = tokenIds[i];
+    const metadata = metadataResults[i];
+    if (!Array.isArray(metadata) || metadata.length === 0 || metadata[0] === "0x") continue;
+
+    let price = 0;
+    let tier: AgentTier = { name: "None", level: 0, stakedAIUS: 0 };
+
+    try {
+      const tokenData = await contract.getTokenData(tokenId);
+      if ((tokenData as any[]).length > 4) {
+        const [erc20Token, , reserve0, reserve1, pairAddress] = tokenData as any[];
+
+        if (erc20Token && pairAddress) {
+          if (!pairContractCache.has(pairAddress)) {
+            pairContractCache.set(pairAddress, new ethers.Contract(pairAddress, UNIPAIR_ABI, provider));
+          }
+          const pairContract = pairContractCache.get(pairAddress)!;
+
+          if (!token0Cache.has(pairAddress)) {
+            const token0 = await pairContract.token0();
+            token0Cache.set(pairAddress, token0);
+          }
+
+          const token0 = token0Cache.get(pairAddress)!;
+          const [aiusReserve, tokenReserve] =
+            token0 === erc20Token ? [reserve1, reserve0] : [reserve0, reserve1];
+
+          const aius = parseFloat(formatUnits(aiusReserve, 18));
+          const tokens = parseFloat(formatUnits(tokenReserve, 18));
+          if (tokens > 0) price = aius / tokens;
+
+          tier = calculatedAgentTier(aius);
+        }
+      } else {
+        const [aius] = (await contract.getAiusAndOwed(tokenId, CONTRACT_ADDRESS)) || [BigInt(0)];
+        tier = {
+          name: "None",
+          level: 0,
+          stakedAIUS: Number(formatUnits(aius, 18)),
+        };
+      }
+    } catch (err) {
+      const reason = (err as any)?.revert?.args?.[0] ?? (err as any)?.reason;
+      if (reason === "Pair not created") {
+        console.warn(`Token ${tokenId}: Pair not created`);
+      } else {
+        console.warn(`Failed to calculate price or tier for token ${tokenId}`, err);
+      }
+    }
+
+    const [
+      agentId, name, description, image, vrmUrl, bgUrl,
+      tags, agentCategory, chatbotBackend, ttsBackend,
+      sttBackend, visionBackend, brain, virtuals, eacc, uos
+    ] = metadata;
+
+    const integrations: Record<string, string> = {};
+    if (brain) integrations.brain = brain;
+    if (virtuals) integrations.virtuals = virtuals;
+    if (eacc) integrations.eacc = eacc;
+    if (uos) integrations.uos = uos;
+
+    agents.push({
+      id: `${tokenId}`,
+      agentId,
+      name: name || "Unknown",
+      token: "AINFT",
+      description: description || "No description available",
+      price,
+      status: "status",
+      avatar: image,
+      category: agentCategory || "All Agents",
+      tags: tags?.split(",") || [],
+      tier,
+      vrmUrl,
+      bgUrl,
+      config: {
+        chatbotBackend,
+        ttsBackend,
+        sttBackend,
+        visionBackend,
+        amicaLifeBackend: "amicaLife",
+      },
+      integrations,
+    });
+  }
+
+  return agentId !== undefined
+    ? agents.length > 0 ? agents[0] : null
+    : agents;
 }
+
