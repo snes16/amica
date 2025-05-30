@@ -3,6 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { backendKeyMap } from "@/features/diagnosed/backendKeys";
 import { getMainContract } from "@/lib/provider";
+import { supabase } from "@/utils/supabase";
+import { decodeAgentId } from "@/utils/fileUtils";
 
 /**
  * Extracts a flat list of key names and a mapping of backend keys from agent configuration.
@@ -18,7 +20,7 @@ export function extractKeyNames(agentConfig: Record<string, string>) {
     const backendName = agentConfig[backendType];
     const mappedKeys = backendKeyMap[backendName];
     if (mappedKeys) {
-      keysMap[backendName] = mappedKeys;
+      keysMap[backendType] = mappedKeys;
     }
   }
 
@@ -33,7 +35,10 @@ export function extractKeyNames(agentConfig: Record<string, string>) {
  * @param agentConfig - Backend configuration of the agent.
  * @returns Object with metadata result, loading state, and error if any.
  */
-export function useBackend(agentId: number, agentConfig: Record<string, string>) {
+export function useBackend(
+  agentId: string,
+  agentConfig: Record<string, string>,
+) {
   const { keysMap, keysList } = extractKeyNames(agentConfig);
 
   const queryEnabled = agentId !== undefined && keysList.length > 0;
@@ -44,7 +49,7 @@ export function useBackend(agentId: number, agentConfig: Record<string, string>)
     error,
   } = useQuery({
     queryKey: ["backend", agentId, keysList],
-    queryFn: () => fetchBackend(agentId, keysList, keysMap),
+    queryFn: () => fetchBackend(agentId,keysList, keysMap),
     staleTime: 10 * 60 * 1000, // Cache data for 10 minutes
     enabled: queryEnabled,
   });
@@ -65,26 +70,83 @@ export function useBackend(agentId: number, agentConfig: Record<string, string>)
  * @returns A structured object mapping backend names to their metadata values.
  */
 export async function fetchBackend(
-  agentId: number,
+  agentId: string,
   keysList: string[],
-  keysMap: Record<string, string[]>
+  keysMap: Record<string, string[]>,
 ): Promise<Record<string, Record<string, string>>> {
   try {
-    const mainContract = getMainContract();
-    const metadata: string[] = await mainContract.getMetadata(agentId, keysList);
+    // 1. Check if agentId exists in agent-score
+    const { data: scoreData, error: scoreError } = await supabase
+      .from("agent-backend")
+      .select("agentId")
+      .eq("agentId", agentId)
+      .maybeSingle();
 
-    if (!metadata || metadata.length !== keysList.length) {
-      throw new Error("Incomplete metadata response");
+    // If agentId not in agent-score, fetch from blockchain
+    if (!scoreData || scoreError) {
+      console.log(
+        "Agent not found in agent-score. Fetching from blockchain...",
+      );
+
+      const id = decodeAgentId(agentId)
+
+      const mainContract = getMainContract();
+      const metadata: string[] = await mainContract.getMetadata(id,keysList);
+
+      if (!metadata || metadata.length !== keysList.length) {
+        throw new Error("Incomplete metadata response");
+      }
+
+      const result: Record<string, Record<string, string>> = {};
+      let index = 0;
+
+      // Assign metadata values back to the appropriate backend sections
+      for (const backendName in keysMap) {
+        result[backendName] = {};
+        for (const field of keysMap[backendName]) {
+          result[backendName][field] = metadata[index++];
+        }
+      }
+
+      // Save to Supabase
+      await supabase
+        .from("agent-backend")
+        .upsert({ agentId, ...result }, { onConflict: "agentId" });
+
+      return result;
+    }
+
+    // 2. Otherwise fetch from Supabase
+    const { data: agentConfigs, error: configsError } = await supabase
+      .from("agents")
+      .select("config")
+      .eq("agentId", agentId)
+      .single();
+
+    const { data: backendData, error: backendsError } = await supabase
+      .from("agent-backend")
+      .select("*")
+      .eq("agentId", agentId)
+      .single();
+
+    if (configsError) {
+      console.error("Failed to fetch configs from Supabase:", configsError);
+      return {};
+    }
+
+    if (backendsError) {
+      console.error("Failed to fetch backends from Supabase:", backendsError);
+      return {};
     }
 
     const result: Record<string, Record<string, string>> = {};
-    let index = 0;
 
-    // Assign metadata values back to the appropriate backend sections
-    for (const backendName in keysMap) {
+    for (const backendType in keysMap) {
+      const backendName = agentConfigs.config[backendType];
       result[backendName] = {};
-      for (const field of keysMap[backendName]) {
-        result[backendName][field] = metadata[index++];
+      const fields = keysMap[backendType];
+      for (const field of fields) {
+        result[backendName][field] = backendData[backendType]?.[field] ?? "";
       }
     }
 

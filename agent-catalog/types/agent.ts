@@ -6,12 +6,12 @@ export interface Agent {
   name: string
   token: string
   description: string
-  price: number
+  price?: number
   status: "active" | "inactive" | "status"
   avatar: string
   category: string
   tags: string[]
-  tier: {
+  tier?: {
     name: "None" | "Newborn" | "Baby" | "Child" | "Teen" | "Adult"
     level: number
     stakedAIUS: number
@@ -19,11 +19,11 @@ export interface Agent {
   vrmUrl: string,
   bgUrl: string,
   config: {
-    chatbotBackend: string
-    ttsBackend: string
-    sttBackend: string
-    visionBackend: string
-    amicaLifeBackend: string
+    chatbot: string
+    tts: string
+    stt: string
+    vision: string
+    amicaLife: string
   }
   integrations: {
     brain?: string

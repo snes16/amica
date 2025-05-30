@@ -57,7 +57,7 @@ export function AgentCard({ agent, index }: AgentCardProps) {
             <div className="flex items-center justify-between">
               <h3 className="font-orbitron font-semibold text-lg text-white">{agent.name}</h3>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-neon-pink font-orbitron">{agent.price.toPrecision(2)} AIUS</span>
+                <span className="text-sm font-medium text-neon-pink font-orbitron">{agent.price?.toPrecision(2)} AIUS</span>
                 <Badge
                   variant="secondary"
                   className="bg-neon-blue border-0 text-white font-roboto-mono hover:bg-neon-blue"
@@ -69,7 +69,7 @@ export function AgentCard({ agent, index }: AgentCardProps) {
             <div className="space-y-1">
               <p className="text-sm text-blue-100/70 font-roboto-mono">Token: {agent.token}</p>
               <p className="text-sm text-blue-100/70 font-roboto-mono">
-                Tier: {agent.tier.name} (Level {agent.tier.level})
+                Tier: {agent.tier?.name} (Level {agent.tier?.level})
               </p>
             </div>
             {/* Scrollable Description */}

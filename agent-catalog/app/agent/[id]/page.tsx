@@ -1,10 +1,10 @@
 import { Metadata } from "next";
-import { fetchAgentServer } from "@/hooks/use-agents";
+import { fetchAgents } from "@/hooks/use-agents";
 import { Agent } from "@/types/agent";
 import AgentClient from "./AgentClient";
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const agentResult = await fetchAgentServer(params.id);
+  const agentResult = await fetchAgents(params.id);
 
   const agent: Agent | null =
     agentResult && !Array.isArray(agentResult) ? agentResult : null;

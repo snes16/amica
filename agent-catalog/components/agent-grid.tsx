@@ -5,9 +5,10 @@ import { AgentCard } from "./agent-card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Brain, Code, Microscope, Users, Shield, TrendingUp, Bitcoin, Briefcase } from "lucide-react"
+import { Brain, Code, Microscope, Users, Shield, TrendingUp, Bitcoin, Briefcase, ClipboardList } from "lucide-react"
 import { motion } from "framer-motion"
 import { useMemo, useState } from "react"
+import Link from "next/link"
 
 interface AgentGridProps {
   agents: Agent[]
@@ -72,17 +73,17 @@ export function AgentGrid({ agents }: AgentGridProps) {
           </div>
           <div className="flex flex-col sm:flex-row gap-4">
 
-            {/* TEMP Disabled: Sort by market cap */}
-            {/* <Select defaultValue="market-cap">
-              <SelectTrigger className="w-full sm:w-[180px] border-2 bg-white">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent className="bg-white border-2 border-gray-200">
-                <SelectItem value="market-cap">Sort by Market Cap</SelectItem>
-                <SelectItem value="price-asc">Price: Low to High</SelectItem>
-                <SelectItem value="price-desc">Price: High to Low</SelectItem>
-              </SelectContent>
-            </Select> */}
+            {/* Leaderboard button */}
+            <Link href={`/leaderboard`}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full h-10 sm:w-[180px] border-gray-200 text-black hover:bg-neon-pink/50 hover:text-white transition-colors"
+              >
+                <ClipboardList className="h-4 w-4 mr-2" />
+                Leaderboard
+              </Button>
+            </Link>
 
             {/* Sort by Price */}
             <Select value={sortOption} onValueChange={(value) => setSortOption(value)}>

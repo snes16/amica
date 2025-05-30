@@ -13,9 +13,13 @@ import {
  * @param tokenId - ID of the token to fetch data for
  */
 export function useTokens(tokenId: number) {
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+  
   const { data, isLoading, error } = useQuery({
     queryKey: ["token-stats", tokenId],
     queryFn: () => fetchTokenStats(tokenId),
+    staleTime: CACHE_TTL, // Use the same value as in your hooks
+    gcTime: CACHE_TTL, // Use the same time for garbage collection
   });
 
   // Check if error message contains "Pair not created"

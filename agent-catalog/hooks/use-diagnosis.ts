@@ -1,4 +1,7 @@
+"use client";
+
 import { useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   checks,
   CheckKey,
@@ -10,11 +13,9 @@ import { vrmDiagnosis } from "@/features/diagnosed/vrmDiagnosis";
 import { extractKeyNames, fetchBackend } from "@/hooks/use-backend";
 import type { Agent } from "@/types/agent";
 import { CACHE_TTL } from "@/lib/query-client";
+import { supabase } from "@/utils/supabase";
 
-// Constants
-const AGENT_CACHE_KEY = "agents";
-const TIMESTAMP_CACHE_KEY = "diagnosis_timestamps";
-
+// Diagnosis categories used to compute talent score
 const talentShowKeys: CheckKey[] = [
   "vrm",
   "chatbot",
@@ -24,7 +25,6 @@ const talentShowKeys: CheckKey[] = [
   "amicaLife",
 ];
 
-// Initial state for diagnosis results
 const initialResults: DiagnosisResultType = {
   vrm: { status: "idle", score: 0 },
   chatbot: { status: "idle", score: 0 },
@@ -36,80 +36,37 @@ const initialResults: DiagnosisResultType = {
 };
 
 /**
- * Performs diagnosis checks on the agent configuration
- */
-export async function runDiagnosisCheck(
-  update: (key: CheckKey, status: Status) => void,
-  agentConfig: Record<string, string>,
-  fullConfig: any,
-  vrmUrl: string,
-) {
-  // Set all checks to loading
-  checks.forEach(({ key }) => update(key, { status: "loading", score: 0 }));
-
-  await Promise.all(
-    checks.map(async ({ key }) => {
-      try {
-        let metric: Status = { status: "fail", score: 0 };
-
-        if (key === "vrm") {
-          metric = await vrmDiagnosis(vrmUrl);
-        } else {
-          const backend = agentConfig[`${key}Backend`];
-          metric = await diagnosisScript(key, backend, fullConfig);
-        }
-
-        update(key, metric);
-      } catch (err) {
-        console.error(`Error during ${key} check:`, err);
-        update(key, { status: "fail", score: 0 });
-      }
-    }),
-  );
-}
-
-/**
- * Custom hook to manage the diagnosis lifecycle
+ * Main runner hook
  */
 export const useDiagnosisRunner = (agent: Agent, index: number) => {
-  const [results, setResults] = useState<DiagnosisResultType>(initialResults);
+  const queryClient = useQueryClient();
   const [checking, setChecking] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [results, setResults] = useState<DiagnosisResultType>(initialResults);
 
-  /**
-   * Triggers the diagnosis process
-   * @param useCache - Whether to use cached diagnosis data
-   */
+  const diagnosisQueryKey = ["diagnosis", agent.agentId];
+  const agentQueryKey = ["agents", agent.agentId];
+
+  const {
+    data: dynamicResults = initialResults,
+    isStale,
+    refetch,
+  } = useDiagnosisQuery(diagnosisQueryKey, agent);
+
   const handleDiagnosis = useCallback(
     async (useCache: boolean = true) => {
       setChecking(true);
-      const now = Date.now();
-      const idStr = agent.agentId;
+
+      if (useCache && !isStale) {
+        setStatus(agent.status);
+        setResults(dynamicResults);
+        setChecking(false);
+        return;
+      }
 
       try {
-        // Attempt to use cached results if enabled
-        if (useCache) {
-          const cachedAgent = getCachedAgent(idStr);
-          const cachedTimestamp = getCachedTimestamp(idStr);
-
-          if (
-            cachedAgent &&
-            cachedTimestamp &&
-            now - cachedTimestamp < CACHE_TTL
-          ) {
-            console.log(
-              `Using cached diagnosis for agent ${cachedAgent.agentId}`,
-            );
-            setStatus(cachedAgent.status);
-            setResults(cachedAgent.diagnosisResult || initialResults);
-            setChecking(false);
-            return;
-          }
-        }
-
-        // Prepare backend configurations
-        const { keysMap, keysList } = extractKeyNames(agent.config);
-        const fullConfig = await fetchBackend(index, keysList, keysMap);
+        const { keysList, keysMap } = extractKeyNames(agent.config);
+        const fullConfig = await fetchBackend(agent.agentId,keysList, keysMap);
 
         const tempResults: DiagnosisResultType = { ...initialResults };
 
@@ -135,76 +92,137 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
           ? "active"
           : "inactive";
 
-        const newTalentShowScore = calculateTalentShowScore(tempResults).toPrecision(4);
-        update("overall", newTalentShowScore);
+        const talentScore =
+          calculateTalentShowScore(tempResults).toPrecision(4);
+        update("overall", talentScore);
 
         setStatus(newStatus);
 
-        const updatedAgent = {
-          ...agent,
-          status: newStatus as Agent["status"],
-          talentShowScore: newTalentShowScore,
-          diagnosisResult: tempResults,
+        queryClient.setQueryData(diagnosisQueryKey, tempResults);
+        queryClient.invalidateQueries({ queryKey: diagnosisQueryKey });
+
+        const agentUpdateCache = {
+          status: newStatus,
+        };
+        const scoreUpdateCache = {
+          ...extractScoresAndOverall(tempResults),
+          talentShowScore: talentScore,
+          agentId: agent.agentId,
         };
 
-        updateAgentCache(agent.agentId, updatedAgent);
-        updateTimestampCache(agent.agentId, now);
+        const { error: agentsUpsertError } = await supabase
+          .from("agents")
+          .update({ status: newStatus })
+          .eq("agentId", agent.agentId);
+
+        const { error: backendUpsertError } = await supabase
+          .from("agent-score")
+          .upsert(scoreUpdateCache, { onConflict: "agentId" });
+
+        if (agentsUpsertError) {
+          console.error("Failed to upsert agents:", agentsUpsertError);
+        }
+        if (backendUpsertError) {
+          console.error("Failed to upsert agent-score:", backendUpsertError);
+        }
+
+        queryClient.setQueryData(agentQueryKey, (prev: Agent | undefined) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            ...agentUpdateCache,
+          };
+        });
       } catch (err) {
         console.error("Diagnosis process failed:", err);
       } finally {
         setChecking(false);
       }
     },
-    [agent, index],
+    [agent, index, queryClient, isStale, dynamicResults],
   );
 
-  return { results, checking, status, handleDiagnosis };
+  return {
+    results,
+    status,
+    checking,
+    handleDiagnosis,
+  };
 };
 
-/**
- * Safely retrieves cached agent data
- */
-function getCachedAgent(agentId: string): Agent | undefined {
-  const raw = localStorage.getItem(AGENT_CACHE_KEY);
-  if (!raw) return undefined;
-  const cache: Record<string, Agent> = JSON.parse(raw);
-  return cache[agentId];
+export function extractScoresAndOverall(result: DiagnosisResultType) {
+  const scores: Record<CheckKey, number> = {} as Record<CheckKey, number>;
+
+  for (const key of Object.keys(result) as (keyof DiagnosisResultType)[]) {
+    if (key === "overall") continue;
+    scores[key as CheckKey] = result[key as CheckKey].score;
+  }
+
+  return {
+    ...scores
+  };
 }
 
 /**
- * Safely retrieves cached timestamp
+ * Custom query hook to manage diagnosis cache
  */
-function getCachedTimestamp(agentId: string): number | undefined {
-  const raw = localStorage.getItem(TIMESTAMP_CACHE_KEY);
-  if (!raw) return undefined;
-  const timestamps: Record<string, number> = JSON.parse(raw);
-  return timestamps[agentId];
+function useDiagnosisQuery(queryKey: any[], agent: Agent) {
+  return useQuery<DiagnosisResultType>({
+    queryKey,
+    queryFn: async () => {
+      const { keysList,keysMap } = extractKeyNames(agent.config);
+      const fullConfig = await fetchBackend(agent.agentId, keysList,keysMap);
+      const tempResults: DiagnosisResultType = { ...initialResults };
+
+      await runDiagnosisCheck(
+        (key, status) => {
+          tempResults[key] = status;
+        },
+        agent.config,
+        fullConfig,
+        agent.vrmUrl,
+      );
+
+      const score = calculateTalentShowScore(tempResults);
+      tempResults.overall = score.toPrecision(4);
+      return tempResults;
+    },
+    staleTime: CACHE_TTL,
+  });
 }
 
 /**
- * Safely updates the agent cache
+ * Diagnosis execution
  */
-function updateAgentCache(agentId: string, agentData: Agent) {
-  const raw = localStorage.getItem(AGENT_CACHE_KEY);
-  const current: Record<string, Agent> = raw ? JSON.parse(raw) : {};
-  current[agentId] = agentData;
-  localStorage.setItem(AGENT_CACHE_KEY, JSON.stringify(current));
-}
+export async function runDiagnosisCheck(
+  update: (key: CheckKey, status: Status) => void,
+  agentConfig: Record<string, string>,
+  fullConfig: any,
+  vrmUrl: string,
+) {
+  checks.forEach(({ key }) => update(key, { status: "loading", score: 0 }));
 
-/**
- * Safely updates the timestamp cache
- */
-function updateTimestampCache(agentId: string, timestamp: number) {
-  const raw = localStorage.getItem(TIMESTAMP_CACHE_KEY);
-  const current: Record<string, number> = raw ? JSON.parse(raw) : {};
-  current[agentId] = timestamp;
-  localStorage.setItem(TIMESTAMP_CACHE_KEY, JSON.stringify(current));
+  await Promise.all(
+    checks.map(async ({ key }) => {
+      try {
+        let metric: Status =
+          key === "vrm"
+            ? await vrmDiagnosis(vrmUrl)
+            : await diagnosisScript(key, agentConfig[key], fullConfig);
+
+        update(key, metric);
+      } catch (err) {
+        console.error(`Error during ${key} check:`, err);
+        update(key, { status: "fail", score: 0 });
+      }
+    }),
+  );
 }
 
 function calculateTalentShowScore(results: Record<CheckKey, Status>): number {
   const maxScorePerCheck = 100;
   const earnedScore = talentShowKeys.reduce((sum, key) => {
-    const score = results[key]?.score;
+    const score = results[key]?.score || 0;
     return sum + score;
   }, 0);
 
