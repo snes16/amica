@@ -13,21 +13,41 @@ const additionalUrls = {
 const prompt = [{ role: "user", content: "Hello" }];
 const promptBuild = "User: Hello\n";
 
-// Utility to safely call fetch
-async function safeFetch(fullUrl: string, options: RequestInit): Promise<EvaluationResult> {
+const TIME_OUT = 20000; // time out 10 secs
+const MIN_DURATION = 5000; // latest time to add the score
+
+// Utility to safely call fetch with a timeout
+async function safeFetch(fullUrl: string, options: RequestInit, timeoutMs = TIME_OUT): Promise<EvaluationResult> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
   const start = performance.now();
+
   try {
-    const res = await fetch(fullUrl, options);
+    const res = await fetch(fullUrl, {
+      ...options,
+      signal: controller.signal,
+    });
+
     const end = performance.now();
+    clearTimeout(id);
     const duration = end - start;
+
     const status = res.ok ? "pass" : "fail";
     const score = calculateScore({ status, duration });
 
     return { status, score };
-  } catch {
+  } catch (err: any) {
     const end = performance.now();
+    clearTimeout(id);
     const duration = end - start;
-    return { status: "fail", score: calculateScore({ status: "fail", duration }) };
+
+    const isAbort = err.name === "AbortError";
+    const status = isAbort ? "fail" : "fail";
+
+    return {
+      status,
+      score: calculateScore({ status, duration, timeout: isAbort }),
+    };
   }
 }
 
@@ -35,13 +55,16 @@ async function safeFetch(fullUrl: string, options: RequestInit): Promise<Evaluat
 function calculateScore({
   status,
   duration,
+  timeout = false,
 }: {
   status: "pass" | "fail";
   duration: number;
+  timeout?: boolean;
 }): number {
+  if (timeout) return 0;
   let score = 0;
   if (status === "pass") score += 50;
-  if (duration < 5000) score += 50 * ((5000 - duration) / 5000); 
+  if (duration < MIN_DURATION) score += 50 * ((MIN_DURATION - duration) / MIN_DURATION); 
   return Math.round(score);
 }
 

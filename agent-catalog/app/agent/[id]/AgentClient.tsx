@@ -3,7 +3,6 @@
 import { useAgents } from "@/hooks/use-agents";
 import { AgentDetails } from "@/components/agent-details";
 import { Agent } from "@/types/agent";
-import { useEffect } from "react";
 
 export default function AgentClient({ id }: { id: string }) {
     const { agents, loading, error } = useAgents(id) as {
@@ -25,4 +24,5 @@ export default function AgentClient({ id }: { id: string }) {
             )}
         </div>
     );
+
 }

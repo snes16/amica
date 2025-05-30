@@ -55,6 +55,9 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
 
   const handleDiagnosis = useCallback(
     async (useCache: boolean = true) => {
+      // Prevent concurrent runs
+      if (checking) return;
+
       setChecking(true);
 
       if (useCache && !isStale) {
@@ -94,12 +97,12 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
 
         const talentScore =
           calculateTalentShowScore(tempResults).toPrecision(4);
+         tempResults["overall"] = talentScore;
         update("overall", talentScore);
 
         setStatus(newStatus);
 
         queryClient.setQueryData(diagnosisQueryKey, tempResults);
-        queryClient.invalidateQueries({ queryKey: diagnosisQueryKey });
 
         const agentUpdateCache = {
           status: newStatus,
@@ -131,8 +134,14 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
           return {
             ...prev,
             ...agentUpdateCache,
+            talentShowScore: talentScore,
           };
         });
+
+        // refresh agent data cache
+        queryClient.invalidateQueries({ queryKey: agentQueryKey });
+        queryClient.refetchQueries({queryKey: agentQueryKey});
+
       } catch (err) {
         console.error("Diagnosis process failed:", err);
       } finally {
@@ -159,7 +168,7 @@ export function extractScoresAndOverall(result: DiagnosisResultType) {
   }
 
   return {
-    ...scores
+    ...scores,
   };
 }
 
@@ -184,7 +193,8 @@ function useDiagnosisQuery(queryKey: any[], agent: Agent) {
       );
 
       const score = calculateTalentShowScore(tempResults);
-      tempResults.overall = score.toPrecision(4);
+      tempResults["overall"] = score.toPrecision(4);
+
       return tempResults;
     },
     staleTime: CACHE_TTL,

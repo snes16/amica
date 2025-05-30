@@ -2,8 +2,13 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 import { EvaluationResult } from './diagnosisScript';
 
-export async function vrmDiagnosis(url: string): Promise<EvaluationResult> {
-const start = performance.now();
+const TIME_OUT = 16000;
+const MIN_DURATION = 4000;
+
+export async function vrmDiagnosis(url: string, timeoutMs= TIME_OUT): Promise<EvaluationResult> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  const start = performance.now();
   try {
     const loader = new GLTFLoader();
     loader.register((parser) => new VRMLoaderPlugin(parser)); // Important!
@@ -11,15 +16,18 @@ const start = performance.now();
     const gltf = await loader.loadAsync(url);
     const vrm = gltf.userData.vrm;
     const end = performance.now();
+    clearTimeout(id);
     const duration = end - start;
     const status = !!vrm ? "pass" : "fail"; // If vrm object exists, it's a valid VRM
     const score = calculateScore({ status, duration });
 
     return { status, score }; 
-  } catch (e) {
+  } catch (e: any) {
     const end = performance.now();
+    clearTimeout(id);
     const duration = end - start;
-    return { status: "fail", score: calculateScore({ status: "fail", duration }) };
+    const isAbort = e.name === "AbortError";
+    return { status: "fail", score: calculateScore({ status: "fail", duration, timeout: isAbort }) };
   }
 }
 
@@ -27,12 +35,15 @@ const start = performance.now();
 function calculateScore({
   status,
   duration,
+  timeout = false,
 }: {
   status: "pass" | "fail";
   duration: number;
+  timeout?: boolean;
 }): number {
+  if (timeout) return 0;
   let score = 0;
   if (status === "pass") score += 50;
-  if (duration < 4000) score += 50 * ((4000 - duration) / 4000); 
+  if (duration < MIN_DURATION) score += 50 * ((MIN_DURATION - duration) / MIN_DURATION); 
   return Math.round(score);
 }

@@ -70,14 +70,6 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
     }
   }, [agent.status]);
 
-  // Update the latest price of token
-  // useEffect(() => {
-  //   if (stats?.price && stats.price !== agent.price) {
-  //     const updatedAgent = { ...agent, price: stats.price };
-  //     localStorage.setItem("agent", JSON.stringify(updatedAgent));
-  //   }
-  // }, [stats?.price]);
-
   // refetch aius and reserve amount after reserve, reload page if pair created
   useEffect(() => {
     if (reserveSuccess) {

@@ -2,6 +2,8 @@ import { Metadata } from "next";
 import { fetchAgents } from "@/hooks/use-agents";
 import { Agent } from "@/types/agent";
 import AgentClient from "./AgentClient";
+import { QueryProvider } from "../../ClientQueryProvider";
+
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const agentResult = await fetchAgents(params.id);
@@ -41,5 +43,10 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 }
 
 export default async function AgentPage({ params }: { params: { id: string } }) {
-  return <AgentClient id={params.id} />;
+  return (
+    <QueryProvider>
+      <AgentClient id={params.id} />
+    </QueryProvider>
+
+  );
 }

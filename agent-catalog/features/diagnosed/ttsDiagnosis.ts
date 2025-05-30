@@ -11,16 +11,24 @@ const additionalUrls = {
 
 const message = "Hello World";
 
+const TIME_OUT = 8000;
+const MIN_DURATION = 2000;
+
 // Utility to safely call fetch
 async function safeFetch(
   fullUrl: string,
   options?: RequestInit,
+  timeoutMs = TIME_OUT
 ): Promise<EvaluationResult> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
   const start = performance.now();
+
   try {
     if (!options) {
         const res = await fetch(fullUrl);
         const end = performance.now();
+        clearTimeout(id);
         const duration = end - start;
         const status = res.ok ? "pass" : "fail";
         const score = calculateScore({ status, duration });
@@ -29,16 +37,19 @@ async function safeFetch(
     } else {
         const res = await fetch(fullUrl, options);
         const end = performance.now();
+        clearTimeout(id);
         const duration = end - start;
         const status = res.ok ? "pass" : "fail";
         const score = calculateScore({ status, duration });
 
         return { status, score };
     }
-  } catch {
+  } catch (err:any) {
     const end = performance.now();
+    clearTimeout(id);
     const duration = end - start;
-    return { status: "fail", score: calculateScore({ status: "fail", duration }) };
+    const isAbort = err.name === "AbortError";
+    return { status: "fail", score: calculateScore({ status: "fail", duration, timeout: isAbort }) };
   }
 }
 
@@ -46,13 +57,16 @@ async function safeFetch(
 function calculateScore({
   status,
   duration,
+  timeout = false,
 }: {
   status: "pass" | "fail";
   duration: number;
+  timeout?: boolean;
 }): number {
+  if (timeout) return 0;
   let score = 0;
   if (status === "pass") score += 50;
-  if (duration < 2000) score += 50 * ((2000 - duration) / 2000); 
+  if (duration < MIN_DURATION) score += 50 * ((MIN_DURATION - duration) / MIN_DURATION); 
   return Math.round(score);
 }
 

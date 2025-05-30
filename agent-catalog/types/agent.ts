@@ -31,7 +31,6 @@ export interface Agent {
     eacc?: string
     uos?: string
   },
-  diagnosisResult?: Record<CheckKey, Status>,
   talentShowScore?: string
 }
 
