@@ -128,33 +128,36 @@ export default function Agent() {
   ];
 
   // Filter and get the relevant defaults
-  const keysList = Object.keys(defaults).filter(key => !filterKeys.includes(key));
+  const keysList = [
+    ...Object.keys(defaults).filter(key => !filterKeys.includes(key)),
+    "brain",
+  ];
 
   const [agentData, setAgentData] = useState<string[] | null>(null);
 
-useEffect(() => {
-  async function fetchNFTMetadata() {
-    if (isNaN(tokenId)) {
-      setError(true);
-      return;
+  useEffect(() => {
+    async function fetchNFTMetadata() {
+      if (isNaN(tokenId)) {
+        setError(true);
+        return;
+      }
+
+      console.log("Featch agent data using Infura RPC")
+
+      try {
+        const contract = new Contract(CONTRACT_ADDRESS, abi, provider);
+        const data = await contract.getMetadata(tokenId, keysList);
+        setAgentData(data);
+      } catch (err) {
+        console.error("Error reading from contract:", err);
+        setError(true);
+      }
     }
 
-    console.log("Featch agent data using Infura RPC")
-
-    try {
-      const contract = new Contract(CONTRACT_ADDRESS, abi, provider);
-      const data = await contract.getMetadata(tokenId, keysList);
-      setAgentData(data);
-    } catch (err) {
-      console.error("Error reading from contract:", err);
-      setError(true);
+    if (!agentData && !loaded) {
+      fetchNFTMetadata();
     }
-  }
-
-  if (!agentData && !loaded) {
-    fetchNFTMetadata();
-  }
-}, [tokenId, agentData, loaded]);
+  }, [tokenId, agentData, loaded]);
 
   useEffect(() => {
     async function processCharacterData() {
@@ -191,7 +194,8 @@ useEffect(() => {
           document.body.style.backgroundColor = configs.bg_color;
         } else if (configs.bg_url) {
           document.body.style.backgroundImage = `url(${configs.bg_url})`;
-        } else if (configs.brain !== "") {
+        } 
+        if (configs.brain) {
           setShowBrain(true);
           setBrainLink(configs.brain);
         }
@@ -356,7 +360,7 @@ useEffect(() => {
               <span className="text-white hidden">Webcam</span>
             </div>
 
-              {/* Integrations Brain */}
+            {/* Integrations Brain */}
             {showBrain && (
               <div className="flex flex-row items-center space-x-2">
                 <IconBrain
@@ -392,7 +396,7 @@ useEffect(() => {
 
       {showChatLog && <ChatLog messages={chatLog} />}
 
-      {showDiagnosis && <DiagnosisScript/>}
+      {showDiagnosis && <DiagnosisScript />}
 
       {/* Normal chat text */}
       {!showChatLog && !showChatMode && (

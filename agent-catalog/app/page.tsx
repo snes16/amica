@@ -9,6 +9,7 @@ import dynamic from "next/dynamic";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Agent } from "@/types/agent";
 
+
 // 👇 Dynamically import the provider to avoid server-side import trace
 const ClientQueryProvider = dynamic(() => import("./ClientQueryProvider").then(mod => mod.QueryProvider), {
   ssr: false,
