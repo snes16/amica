@@ -5,29 +5,44 @@ import { EvaluationResult } from './diagnosisScript';
 const TIME_OUT = 16000;
 const MIN_DURATION = 4000;
 
-export async function vrmDiagnosis(url: string, timeoutMs= TIME_OUT): Promise<EvaluationResult> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
+// Timeout wrapper function
+function timeoutPromise<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error("TimeoutError")), ms);
+    promise
+      .then((res) => {
+        clearTimeout(id);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(id);
+        reject(err);
+      });
+  });
+}
+
+export async function vrmDiagnosis(url: string, timeoutMs = TIME_OUT): Promise<EvaluationResult> {
   const start = performance.now();
   try {
     const loader = new GLTFLoader();
     loader.register((parser) => new VRMLoaderPlugin(parser)); // Important!
 
-    const gltf = await loader.loadAsync(url);
+    const gltf = await timeoutPromise(loader.loadAsync(url), timeoutMs);
     const vrm = gltf.userData.vrm;
     const end = performance.now();
-    clearTimeout(id);
     const duration = end - start;
     const status = !!vrm ? "pass" : "fail"; // If vrm object exists, it's a valid VRM
     const score = calculateScore({ status, duration });
 
-    return { status, score }; 
+    return { status, score };
   } catch (e: any) {
     const end = performance.now();
-    clearTimeout(id);
     const duration = end - start;
-    const isAbort = e.name === "AbortError";
-    return { status: "fail", score: calculateScore({ status: "fail", duration, timeout: isAbort }) };
+    const isTimeout = e.message === "TimeoutError";
+    return {
+      status: "fail",
+      score: calculateScore({ status: "fail", duration, timeout: isTimeout }),
+    };
   }
 }
 
@@ -44,6 +59,6 @@ function calculateScore({
   if (timeout) return 0;
   let score = 0;
   if (status === "pass") score += 50;
-  if (duration < MIN_DURATION) score += 50 * ((MIN_DURATION - duration) / MIN_DURATION); 
+  if (duration < MIN_DURATION) score += 50 * ((MIN_DURATION - duration) / MIN_DURATION);
   return Math.round(score);
 }
