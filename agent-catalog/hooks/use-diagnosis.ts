@@ -131,6 +131,7 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
 
         queryClient.setQueryData(agentQueryKey, (prev: Agent | undefined) => {
           if (!prev) return prev;
+          console.log(`Update Agent ${agent.agentId} cache `,{ ...agentUpdateCache, talentShowScore: talentScore})
           return {
             ...prev,
             ...agentUpdateCache,
@@ -139,8 +140,8 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
         });
 
         // refresh agent data cache
-        queryClient.invalidateQueries({ queryKey: agentQueryKey });
-        queryClient.refetchQueries({queryKey: agentQueryKey});
+        queryClient.invalidateQueries({ queryKey: agentQueryKey, refetchType: "active" });
+        queryClient.refetchQueries({queryKey: agentQueryKey, type: "active"});
 
       } catch (err) {
         console.error("Diagnosis process failed:", err);

@@ -34,12 +34,16 @@ export interface ChatbotBackend {
         idle_text_prompt: string;
     }
   }
+
+  export type AmicaLifeParams = NonNullable<
+  AmicaLife[keyof AmicaLife]
+>;
   
   export interface TTSBackend {
-    elvenlabs?: {
+    elevenlabs?: {
       elevenlabs_apikey: string;
       elevenlabs_voiceid: string;
-      elvenlabs_model: string;
+      elevenlabs_model: string;
     };
     speecht5?: {
       speaker_embedding_url: string;
@@ -77,7 +81,7 @@ export interface ChatbotBackend {
     rvc_index_rate: string;
     rvc_filter_radius: string;
     rvc_resample_sr: string;
-    rvc_rmx_mix_rate: string;
+    rvc_rms_mix_rate: string;
     rvc_protect: string;
   }
   

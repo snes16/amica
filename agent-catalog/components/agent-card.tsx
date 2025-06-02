@@ -19,7 +19,7 @@ interface AgentCardProps {
 const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 
 export function AgentCard({ agent, index }: AgentCardProps) {
-  const { status, checking, handleDiagnosis } = useDiagnosisRunner(agent, index);
+  const { status, checking, results, handleDiagnosis } = useDiagnosisRunner(agent, index);
   const hasChecked = useRef(false);
 
   // Check agent status on mount
@@ -62,7 +62,7 @@ export function AgentCard({ agent, index }: AgentCardProps) {
                   variant="secondary"
                   className="bg-neon-blue border-0 text-white font-roboto-mono hover:bg-neon-blue"
                 >
-                  {checking ? "loading" : status || agent.status}
+                  {checking ? "loading" : status}
                 </Badge>
               </div>
             </div>
