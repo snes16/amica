@@ -21,7 +21,6 @@ import { ERC721_ABI } from "@/utils/abi/erc721";
 import { formatUnits } from "ethers";
 import { ERC20_ABI } from "@/utils/abi/erc20";
 import { AgentVrmDiagnosis } from "./agent-diagnosis";
-import { useRouter } from 'next/navigation';
 
 interface AgentDetailsProps {
   agent: Agent;
@@ -35,11 +34,12 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
   const [vrmLoaded, setVrmLoaded] = useState(false);
   const [vrmError, setVrmError] = useState(false);
   const [diagnosisPassed, setDiagnosisPassed] = useState(false);
-  const router = useRouter();
-  const { stats, priceHistory, tokenAddress, loading, error } = useTokens(Number(agent.id));
   const [reserveAmount, setReserveAmount] = useState("");
+
   const { isConnected, address } = useAccount();
+  const { stats, priceHistory, tokenAddress, loading, error } = useTokens(Number(agent.id));
   const { write: reserveTokens, isLoading: reserving, isSuccess: reserveSuccess, error: reserveError } = useReserveToken();
+  
   const { data, isLoading: loadingAius, refetch: refetchAiusData } = useReadContract({
     address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS! as `0x${string}`,
     abi: ERC721_ABI,
@@ -47,7 +47,6 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
     args: [BigInt(agent.id), address],
     query: { enabled: isConnected && !!address },
   });
-
   const [aius, owed] = (data as [bigint, bigint]) || [BigInt(0), BigInt(0)];
 
   const { data: aiusAmount, refetch: refetchAiusAmount } = useReadContract({

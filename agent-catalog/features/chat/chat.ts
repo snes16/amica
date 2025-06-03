@@ -40,7 +40,6 @@ type TTSJob = {
 
 export interface ChatConfig {
   name: string,
-  tts_muted: string,
   tts_backend: 'none' | 'piper' | 'coqui' | 'elevenlabs' | 'speecht5' | 'openai_tts' | 'localXTTS' | 'coquiLocal';
   chatbot_backend: 'openai' | 'llamacpp' | 'ollama' | 'koboldai' | 'windowai' | 'openrouter';
   vision_backend: 'vision_llamacpp' | 'vision_ollama' | 'vision_openai';
@@ -50,7 +49,7 @@ export interface ChatConfig {
   tts_params: TTSBackend;
   vision_params: VisionBackend;
   amica_life_params: AmicaLifeParams;
-  rvc_params: RVC;
+  rvc_params?: RVC;
   // Add more as needed
 }
 
@@ -117,7 +116,6 @@ export class Chat {
   public initialize(
     amicaLife: AmicaLife,
     viewer: Viewer,
-    setChatLog: (messageLog: Message[]) => void,
     setUserMessage: (message: string) => void,
     setAssistantMessage: (message: string) => void,
     setShownMessage: (role: Role) => void,
@@ -127,7 +125,6 @@ export class Chat {
   ) {
     this.amicaLife = amicaLife;
     this.viewer = viewer;
-    this.setChatLog = setChatLog;
     this.setUserMessage = setUserMessage;
     this.setAssistantMessage = setAssistantMessage;
     this.setShownMessage = setShownMessage;
@@ -327,7 +324,7 @@ export class Chat {
   }
 
   // this happens either from text or from voice / whisper completion
-  public async receiveMessageFromUser(config: {amica_life_enabled: string, system_prompt: string},message: string, amicaLife: boolean) {
+  public async receiveMessageFromUser(message: string, amicaLife: boolean) {
     if (message === null || message === "") {
       return;
     }
@@ -354,7 +351,7 @@ export class Chat {
 
     // make new stream
     const messages: Message[] = [
-      { role: "system", content: config.system_prompt },
+      { role: "system", content: this.config?.system_prompt! },
       ...this.messageList!,
       { role: "user", content: amicaLife ? message : this.currentUserMessage},
     ];
@@ -484,7 +481,7 @@ export class Chat {
     // in their respective functions
     // this is just a simple solution for now
     talk = cleanTalk(talk);
-    if (talk.message.trim() === '' || this.config?.tts_muted === 'true') {
+    if (talk.message.trim() === '') {
       return null;
     }
 
@@ -646,6 +643,4 @@ export class Chat {
     this.ttsJobs.clear();
     this.speakJobs.clear();
   }
-
-
 }

@@ -3,7 +3,7 @@ import { Queue } from "typescript-collections";
 import { wait } from "@/utils/wait";
 import { pauseIdleTimer, resumeIdleTimer } from "@/utils/isIdle";
 
-import { Chat } from "@/features/chat/chat";
+import { Chat, ChatConfig } from "@/features/chat/chat";
 import {
   AmicaLifeEvents,
   idleEvents,
@@ -21,7 +21,6 @@ export class AmicaLife {
   public viewer?: Viewer;
   public chat?: Chat;
 
-  public setSubconciousLogs?: (subconciousLogs: TimestampedPrompt[]) => void;
   public isChatSpeaking?: boolean;
 
   public triggerMessage: boolean;
@@ -47,17 +46,16 @@ export class AmicaLife {
     this.isProcessingIdleRunning = false;
   }
 
-  public initialize(viewer: Viewer, chat: Chat, setSubconciousLogs: (subconciousLogs: TimestampedPrompt[]) => void, isChatSpeaking: boolean) {
+  public initialize(config: ChatConfig,viewer: Viewer, chat: Chat, isChatSpeaking: boolean) {
     this.viewer = viewer;
     this.chat = chat;
 
-    this.setSubconciousLogs = setSubconciousLogs
     this.isChatSpeaking = isChatSpeaking
 
     this.loadIdleTextPrompt(null);
 
     // This loop will run depending on Amica Life Enabled/Disabled config
-    this.processingIdle();
+    this.processingIdle(config);
 
     this.initialized = true;
   }
@@ -148,17 +146,17 @@ export class AmicaLife {
   //   }
   // }
 
-  public async processingIdle() {
+  public async processingIdle(config: ChatConfig) {
     // Preventing duplicate processingIdle loop
     if (this.isProcessingIdleRunning) { return; }
 
     this.isProcessingIdleRunning = true;
 
     console.log("Starting Amica Life");
-    while (config("amica_life_enabled") === "true") {
+    while (config.amica_life_params.amica_life_enabled === "true") {
       // Check if amica is in idle state trigger processingEvent loop
       if (!this.chat?.isAwake()) {
-        this.processingEvent();
+        this.processingEvent(config);
       }
       await wait(50);
     }
@@ -169,7 +167,7 @@ export class AmicaLife {
     console.log("Stopping idle loop");
   }
 
-  public async processingEvent() {
+  public async processingEvent(config: ChatConfig) {
     // Preventing duplicate processing event loop
     if (this.isProcessingEventRunning) {
       // Check for resume
@@ -198,14 +196,14 @@ export class AmicaLife {
         resumeIdleTimer();
 
         // Check for pause and sleep
-        await this.checkSleep();
+        await this.checkSleep(config);
         await this.checkPause();
 
         // Random chance for doing nothing (25% chance)
         if (Math.random() <= 0.25) {
           // removed for staging usage
           //console.log("Handling idle event:", "Doing nothing this cycle");
-          await this.waitInterval();
+          await this.waitInterval(config);
           continue;
         }
 
@@ -214,7 +212,7 @@ export class AmicaLife {
         if (idleEvent) {
           console.time(`processing_event ${idleEvent.events}`);
           this.eventProcessing = true;
-          await handleIdleEvent(idleEvent, this, this.chat!, this.viewer!);
+          await handleIdleEvent(config ,idleEvent, this, this.chat!, this.viewer!);
           !(idleEvent.events === 'Subconcious' || idleEvent.events === 'Sleep') ? this.mainEvents.enqueue(idleEvent) : null;
         } else {
           //removed for staging usage
@@ -224,7 +222,7 @@ export class AmicaLife {
         pauseIdleTimer();
       }
 
-      await this.waitInterval();
+      await this.waitInterval(config);
     }
     this.isProcessingEventRunning = false;
   }
@@ -239,7 +237,7 @@ export class AmicaLife {
   }
 
   // Function to check for sleep event if idleTime > time_to_sleep add Sleep event to the front of amica queue
-  private async checkSleep() {
+  private async checkSleep(config: ChatConfig) {
     if (!this.isSleep) {
       const chat = this.chat;
       if (!chat) {
@@ -249,7 +247,7 @@ export class AmicaLife {
       const idleTime = chat.idleTime();
       // If character being idle morethan 120 sec or 2 min, play handle sleep event
       if (!this.containsEvent("Sleep")) {
-        if (idleTime > parseInt(config("time_to_sleep_sec"))) {
+        if (idleTime > parseInt(config.amica_life_params.time_to_sleep_sec)) {
           this.insertFront({ events: "Sleep" });
         }
       }
@@ -296,20 +294,20 @@ export class AmicaLife {
   // These is amica life utils
 
   // Update time before idle increase by 1.25 times
-  public updatedIdleTime() {
-    const idleTimeSec = Math.min(
-      parseInt(config("time_before_idle_sec")) * 1.25,
-      240,
-    );
-    // updateConfig("time_before_idle_sec", idleTimeSec.toString());
-    // removed for staging
-    //console.log(`Updated time before idle to ${idleTimeSec} seconds`);
-  }
+  // public updatedIdleTime() {
+  //   const idleTimeSec = Math.min(
+  //     parseInt(config("time_before_idle_sec")) * 1.25,
+  //     240,
+  //   );
+  //   // updateConfig("time_before_idle_sec", idleTimeSec.toString());
+  //   // removed for staging
+  //   //console.log(`Updated time before idle to ${idleTimeSec} seconds`);
+  // }
 
-  public async waitInterval() {
+  public async waitInterval(config: ChatConfig) {
     const [minMs, maxMs] = [
-      parseInt(config("min_time_interval_sec")),
-      parseInt(config("max_time_interval_sec")),
+      parseInt(config.amica_life_params.min_time_interval_sec),
+      parseInt(config.amica_life_params.max_time_interval_sec),
     ];
     const interval =
       Math.floor(Math.random() * (maxMs - minMs + 1) + minMs) * 1000;

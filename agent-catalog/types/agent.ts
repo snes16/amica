@@ -24,6 +24,7 @@ export interface Agent {
     stt: string
     vision: string
     amicaLife: string
+    rvc: string
   }
   integrations: {
     brain?: string
@@ -32,5 +33,7 @@ export interface Agent {
     uos?: string
   },
   talentShowScore?: string
+  systemPrompt: string
+  visionSystemPrompt: string
 }
 

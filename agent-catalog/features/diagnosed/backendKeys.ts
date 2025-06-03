@@ -24,6 +24,7 @@ export const backendKeyMap: Record<string, string[]> = {
     vision_openai: ["vision_openai_apikey", "vision_openai_url", "vision_openai_model"],
     vision_ollama: ["vision_ollama_url", "vision_ollama_model"],
 
-    amicaLife : ["amica_life_enabled", "min_time_interval_sec", "max_time_interval_sec", "time_to_sleep_sec", "idle_text_prompt"]
+    amicaLife : ["amica_life_enabled", "min_time_interval_sec", "max_time_interval_sec", "time_to_sleep_sec", "idle_text_prompt"],
+    rvc: ["rvc_enabled","rvc_url","rvc_model_name","rvc_f0_upkey","rvc_f0_method","rvc_index_path","rvc_index_rate","rvc_filter_radius","rvc_resample_sr","rvc_rms_mix_rate","rvc_protect",]
   };
   

@@ -31,6 +31,8 @@ const METADATA_KEYS = [
   "virtuals",
   "eacc",
   "uos",
+  "system_prompt",
+  "vision_system_prompt"
 ];
 
 // Public React hook to load agent(s)
@@ -138,6 +140,8 @@ export async function syncSupabaseWithBlockchain(
       virtuals,
       eacc,
       uos,
+      systemPrompt,
+      visionSystemPrompt,
     ] = metadata;
 
     const integrations: Record<string, string> = {};
@@ -146,7 +150,7 @@ export async function syncSupabaseWithBlockchain(
     if (eacc) integrations.eacc = eacc;
     if (uos) integrations.uos = uos;
 
-    const config = { chatbot, tts, stt, vision, amicaLife: "amicaLife" };
+    const config = { chatbot, tts, stt, vision, amicaLife: "amicaLife", rvc: "rvc" };
 
     newAgents.push({
       id: String(tokenId),
@@ -162,6 +166,8 @@ export async function syncSupabaseWithBlockchain(
       bgUrl,
       config,
       integrations,
+      systemPrompt,
+      visionSystemPrompt,
     });
 
     const { keysMap, keysList } = extractKeyNames(config);

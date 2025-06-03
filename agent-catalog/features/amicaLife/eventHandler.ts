@@ -1,16 +1,19 @@
 import { animationList } from "@/paths";
 import { loadVRMAnimation } from "@/lib/VRMAnimation/loadVRMAnimation";
 
-import { Chat } from "@/features/chat/chat";
+import { Chat, ChatConfig } from "@/features/chat/chat";
 import { emotions } from "@/features/chat/messages";
 
-import { basename } from "@/components/settings/common";
 import { askLLM } from "@/utils/askLlm";
 
 import { functionCalling } from "@/features/functionCalling/functionCalling";
 import { AmicaLife } from "./amicaLife";
 import { Viewer } from "../vrmViewer/viewer";
-import { config } from "@/utils/config";
+
+function basename(path: string) {
+  const a = path.split("/");
+  return a[a.length - 1];
+}
 
 export const idleEvents = [
   "VRMA",
@@ -128,6 +131,7 @@ export async function handleSleepEvent(chat: Chat, amicaLife: AmicaLife) {
 // Handles subconcious event.
 
 export async function handleSubconsciousEvent(
+  config: ChatConfig,
   chat: Chat,
   amicaLife: AmicaLife,
 ) {
@@ -146,6 +150,7 @@ export async function handleSubconsciousEvent(
   try {
     // Step 1: Simulate subconscious self mental diary
     const subconciousWordSalad = await askLLM(
+      config,
       "Please reflect on the conversation and let your thoughts flow freely, as if writing a personal diary with events that have occurred:",
       `${convoLog}`,
       null,
@@ -158,6 +163,7 @@ export async function handleSubconsciousEvent(
       ? convoLog
       : subconciousWordSalad;
     const decipherEmotion = await askLLM(
+      config,
       "Read this mini-diary, I would like you to simulate a human-like subconscious with deep emotions and describe it from a third-person perspective:",
       secondStepPrompt,
       null,
@@ -171,6 +177,7 @@ export async function handleSubconsciousEvent(
       ? convoLog
       : decipherEmotion;
     const emotionDecided = await askLLM(
+      config,
       `Based on your mini-diary, respond with dialougue that sounds like a normal person speaking about their mind, experience or feelings. Make sure to incorporate the specified emotion tags in your response. Here is the list of emotion tags that you have to include in the result : ${emotions
         .map((emotion) => `[${emotion}]`)
         .join(", ")}:`,
@@ -186,6 +193,7 @@ export async function handleSubconsciousEvent(
       ? convoLog
       : subconciousWordSalad;
     const compressSubconcious = await askLLM(
+      config,
       "Compress this prompt to 240 characters:",
       fourthStepPrompt,
       null,
@@ -241,6 +249,7 @@ export async function handleNewsEvent(chat: Chat, amicaLife: AmicaLife) {
 // Main handler for idle events.
 
 export async function handleIdleEvent(
+  config: ChatConfig,
   event: AmicaLifeEvents,
   amicaLife: AmicaLife,
   chat: Chat,
@@ -256,7 +265,7 @@ export async function handleIdleEvent(
       await handleVRMAnimationEvent(viewer, amicaLife);
       break;
     case "Subconcious":
-      await handleSubconsciousEvent(chat, amicaLife);
+      await handleSubconsciousEvent(config, chat, amicaLife);
       break;
     case "News":
       await handleNewsEvent(chat, amicaLife);
