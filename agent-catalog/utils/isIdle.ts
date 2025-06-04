@@ -1,18 +1,16 @@
-import { config } from "@/utils/config";
-
 let paused = false;
 let pausedAt = 0;
 let totalPausedTime = 0;
 
-export function isCharacterIdle(lastAwake: number): boolean {
+export function isCharacterIdle(time_before_idle_sec:string, lastAwake: number): boolean {
   let sinceLastAwakeSec = ((new Date()).getTime() - lastAwake - totalPausedTime) / 1000;
-  let timeBeforeIdleSec = parseInt(config("time_before_idle_sec"));
+  let timeBeforeIdleSec = parseInt(time_before_idle_sec);
   return sinceLastAwakeSec >= timeBeforeIdleSec;
 }
 
-export function characterIdleTime(lastAwake: number): number {
+export function characterIdleTime(time_before_idle_sec:string, lastAwake: number): number {
   let sinceLastAwakeSec = ((new Date()).getTime() - lastAwake - totalPausedTime) / 1000;
-  let timeBeforeIdleSec = parseInt(config("time_before_idle_sec"));
+  let timeBeforeIdleSec = parseInt(time_before_idle_sec);
   return sinceLastAwakeSec - timeBeforeIdleSec;
 }
 

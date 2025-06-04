@@ -3,11 +3,12 @@
 import { AgentGrid } from "@/components/agent-grid";
 import { Header } from "@/components/header";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useAgents } from "@/hooks/use-agents";
+import { useAgents, fetchAgents } from "@/hooks/use-agents";
 
 import dynamic from "next/dynamic";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Agent } from "@/types/agent";
+import { useEffect, useState } from "react";
 
 
 // 👇 Dynamically import the provider to avoid server-side import trace
@@ -36,7 +37,7 @@ function HomeContent({ backgroundColor }: { backgroundColor: any }) {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
           </div>
         ) : (
-          <AgentGrid agents={agents} />
+          <AgentGrid agents={agents!} />
         )}
       </div>
     </motion.main>

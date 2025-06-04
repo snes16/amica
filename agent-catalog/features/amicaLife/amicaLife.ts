@@ -1,4 +1,4 @@
-import { Queue } from "typescript-collections";
+import { Queue } from "@/utils/queue"
 
 import { wait } from "@/utils/wait";
 import { pauseIdleTimer, resumeIdleTimer } from "@/utils/isIdle";
@@ -20,6 +20,8 @@ export class AmicaLife {
   public mainEvents: Queue<AmicaLifeEvents>;
   public viewer?: Viewer;
   public chat?: Chat;
+
+  public setSubconciousLogs?: (subconciousLogs: TimestampedPrompt[]) => void;
 
   public isChatSpeaking?: boolean;
 
@@ -46,11 +48,12 @@ export class AmicaLife {
     this.isProcessingIdleRunning = false;
   }
 
-  public initialize(config: ChatConfig,viewer: Viewer, chat: Chat, isChatSpeaking: boolean) {
+  public initialize(config: ChatConfig,viewer: Viewer, chat: Chat, isChatSpeaking: boolean, setSubconciousLogs: (subconciousLogs: TimestampedPrompt[]) => void) {
     this.viewer = viewer;
     this.chat = chat;
 
     this.isChatSpeaking = isChatSpeaking
+    this.setSubconciousLogs = setSubconciousLogs
 
     this.loadIdleTextPrompt(null);
 

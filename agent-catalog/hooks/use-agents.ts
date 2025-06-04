@@ -32,7 +32,7 @@ const METADATA_KEYS = [
   "eacc",
   "uos",
   "system_prompt",
-  "vision_system_prompt"
+  "vision_system_prompt",
 ];
 
 // Public React hook to load agent(s)
@@ -104,16 +104,42 @@ export async function syncSupabaseWithBlockchain(
   if (missingTokenIds.length === 0) return existingAgents!;
 
   // 🔍 Fetch missing metadata from the blockchain
+  // const metadataCalls = missingTokenIds.map((id) => {
+  //   return ethcallProvider
+  //     .all([ethcallContract.getMetadata(id, METADATA_KEYS)])
+  //     .then(([result]) => ({ id, result }))
+  //     .catch((error) => ({ id, error }));
+  // });
+
+  // const metadataResults = await Promise.all(metadataCalls);
+
+  // metadataResults.forEach((res) => {
+  //   if ("error" in res) {
+  //     console.error(`Error fetching metadata for ${res.id}:`, res.error);
+  //   } else {
+  //     const result = res.result as any[];
+  //     console.log(`Metadata for ${res.id}:`, result[1]);
+  //   }
+  // });
+
   const metadataCalls = missingTokenIds.map((id) =>
     ethcallContract.getMetadata(id, METADATA_KEYS),
   );
   const metadataResults = await ethcallProvider.all(metadataCalls);
 
+  console.log("Metadata Results : ", metadataResults);
+
   const newAgents: Agent[] = [];
   const newBackends: object[] = [];
 
   for (let i = 0; i < missingTokenIds.length; i++) {
-    const metadata = metadataResults[i];
+    // const res = metadataResults[i];
+    // if (!("result" in res)) {
+    //   // Skip if there was an error fetching metadata
+    //   continue;
+    // }
+    // const metadata = res.result;
+    const metadata = metadataResults[i]
     const tokenId = missingTokenIds[i];
 
     if (
@@ -150,7 +176,14 @@ export async function syncSupabaseWithBlockchain(
     if (eacc) integrations.eacc = eacc;
     if (uos) integrations.uos = uos;
 
-    const config = { chatbot, tts, stt, vision, amicaLife: "amicaLife", rvc: "rvc" };
+    const config = {
+      chatbot,
+      tts,
+      stt,
+      vision,
+      amicaLife: "amicaLife",
+      rvc: "rvc",
+    };
 
     newAgents.push({
       id: String(tokenId),

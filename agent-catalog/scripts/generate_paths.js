@@ -18,4 +18,4 @@ str += `export const vrmList = ${JSON.stringify(vrmList)};\n`;
 str += `export const speechT5SpeakerEmbeddingsList = ${JSON.stringify(speechT5SpeakerEmbeddingsList)};\n`;
 str += `export const animationList = ${JSON.stringify(animationList)};\n`;
 
-fs.writeFileSync(path.join(__dirname, './../src/paths.ts'), str);
+fs.writeFileSync(path.join(__dirname, './../utils/paths.ts'), str);

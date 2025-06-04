@@ -1,4 +1,4 @@
-import { animationList } from "@/paths";
+import { animationList } from "@/utils/paths";
 import { loadVRMAnimation } from "@/lib/VRMAnimation/loadVRMAnimation";
 
 import { Chat, ChatConfig } from "@/features/chat/chat";

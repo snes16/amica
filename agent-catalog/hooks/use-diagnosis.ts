@@ -140,8 +140,8 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
         });
 
         // refresh agent data cache
-        queryClient.invalidateQueries({ queryKey: agentQueryKey, refetchType: "active" });
-        queryClient.refetchQueries({queryKey: agentQueryKey, type: "active"});
+        // queryClient.invalidateQueries({ queryKey: agentQueryKey, refetchType: "active" });
+        // queryClient.refetchQueries({queryKey: agentQueryKey, type: "active"});
 
       } catch (err) {
         console.error("Diagnosis process failed:", err);
