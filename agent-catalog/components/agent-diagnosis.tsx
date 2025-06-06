@@ -1,60 +1,48 @@
 "use client";
-import { useBackend } from "@/hooks/use-backend";
+
 import { Button } from "./ui/button";
-import { useDiagnosis } from "@/hooks/use-diagnosis";
+import { useDiagnosisRunner } from "@/hooks/use-diagnosis";
 import { DiagnosisResult } from "./diagnosis-result";
 import { checks } from "@/components/diagnosis-result";
+import { useEffect, useRef, useState } from "react";
+import { Agent } from "@/types/agent";
 
 interface AgentVrmDiagnosisProps {
-  vrmLoaded: boolean;
-  vrmError: boolean;
-  agentId: string;
-  agentConfig: {
-    chatbotBackend: string;
-    ttsBackend: string;
-    sttBackend: string;
-    visionBackend: string;
-    amicaLifeBackend: string;
-  };
+  agent: Agent
+  index: number;
 }
 
 export function AgentVrmDiagnosis({
-  vrmLoaded,
-  vrmError,
-  agentId,
-  agentConfig
+  agent,
+  index
 }: AgentVrmDiagnosisProps) {
-  const {
-    data: fullConfig,
-    loading: configLoading,
-    error: configError
-  } = useBackend(Number(agentId), agentConfig);
+  const hasChecked = useRef(false);
 
-  const { results, runDiagnosis } = useDiagnosis(
-    agentConfig,
-    fullConfig,
-    vrmLoaded,
-    vrmError
-  );
+  const { results, checking, handleDiagnosis } = useDiagnosisRunner(agent, index);
 
-  const handleDiagnosis = () => {
-    if (configLoading || configError || !fullConfig) {
-      console.warn("Waiting for backend config to load.");
-      return;
+  // Check agent status on mount
+  useEffect(() => {
+    if (!hasChecked.current) {
+      handleDiagnosis();
+      hasChecked.current = true;
     }
-    runDiagnosis();
-  };
+  }, []);
 
   return (
     <div className="w-full p-6 border border-gray-200 rounded-3xl bg-white shadow-xl flex flex-col justify-between">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-        <h2 className="text-2xl font-orbitron text-gray-800 mb-2 md:mb-0">Agent Diagnosis</h2>
+        <h2 className="text-2xl font-orbitron text-gray-800 mb-2 md:mb-0">
+          Talent Show Score:{" "}
+          <span className="font-bold">
+            {results["overall"] || agent.talentShowScore || "N/A"}
+          </span>
+        </h2>
         <Button
-          onClick={handleDiagnosis}
-          disabled={configLoading}
+          onClick={() => handleDiagnosis(false)}
+          disabled={checking}
           className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-orbitron px-6 py-2 rounded-xl shadow"
         >
-          {configLoading ? "Preparing..." : "Run Full Diagnosis"}
+          {checking ? "Loading..." : "Evaluate Agent"}
         </Button>
       </div>
 

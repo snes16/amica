@@ -7,6 +7,8 @@ import { useAgents } from "@/hooks/use-agents";
 
 import dynamic from "next/dynamic";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { Agent } from "@/types/agent";
+
 
 // 👇 Dynamically import the provider to avoid server-side import trace
 const ClientQueryProvider = dynamic(() => import("./ClientQueryProvider").then(mod => mod.QueryProvider), {
@@ -14,7 +16,11 @@ const ClientQueryProvider = dynamic(() => import("./ClientQueryProvider").then(m
 });
 
 function HomeContent({ backgroundColor }: { backgroundColor: any }) {
-  const { agents, loading, error } = useAgents();
+  const { agents, loading, error } = useAgents() as {
+      agents: Agent[];
+      loading: boolean;
+      error: string | null;
+    };
 
   return (
     <motion.main className="min-h-screen" style={{ backgroundColor }}>

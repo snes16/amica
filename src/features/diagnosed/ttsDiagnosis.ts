@@ -1,5 +1,4 @@
-import { TTSBackend } from "@/types/backend";
-import { EvaluationResult } from "./diagnosisScript";
+import { TTSBackend } from "@/utils/diagnosisUtils";
 
 const additionalUrls = {
   elevenlabs: "?optimize_streaming_latency=0&output_format=mp3_44100_128",
@@ -11,74 +10,35 @@ const additionalUrls = {
 
 const message = "Hello World";
 
-const TIME_OUT = 8000;
-const MIN_DURATION = 2000;
-
 // Utility to safely call fetch
 async function safeFetch(
   fullUrl: string,
   options?: RequestInit,
-  timeoutMs = TIME_OUT
-): Promise<EvaluationResult> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  const start = performance.now();
-
+): Promise<string> {
   try {
     if (!options) {
         const res = await fetch(fullUrl);
-        const end = performance.now();
-        clearTimeout(id);
-        const duration = end - start;
         const status = res.ok ? "pass" : "fail";
-        const score = calculateScore({ status, duration });
-
-        return { status, score };
+        return status;
     } else {
         const res = await fetch(fullUrl, options);
-        const end = performance.now();
-        clearTimeout(id);
-        const duration = end - start;
         const status = res.ok ? "pass" : "fail";
-        const score = calculateScore({ status, duration });
-
-        return { status, score };
+        return status;
     }
-  } catch (err:any) {
-    const end = performance.now();
-    clearTimeout(id);
-    const duration = end - start;
-    const isAbort = err.name === "AbortError";
-    return { status: "fail", score: calculateScore({ status: "fail", duration, timeout: isAbort }) };
+  } catch {
+    return "fail";
   }
-}
-
-// Score calculation logic
-function calculateScore({
-  status,
-  duration,
-  timeout = false,
-}: {
-  status: "pass" | "fail";
-  duration: number;
-  timeout?: boolean;
-}): number {
-  if (timeout) return 0;
-  let score = 0;
-  if (status === "pass") score += 50;
-  if (duration < MIN_DURATION) score += 50 * ((MIN_DURATION - duration) / MIN_DURATION); 
-  return Math.round(score);
 }
 
 // Individual backend handlers
 const backendHandlers: Record<
   string,
-  (params: TTSBackend) => Promise<EvaluationResult>
+  (params: TTSBackend) => Promise<string>
 > = {
   elevenlabs: async (params) => {
     const { elevenlabs_apikey, elevenlabs_voiceid, elvenlabs_model } = params.elvenlabs || {};
 
-    if (!elevenlabs_apikey || !elevenlabs_voiceid || !elvenlabs_model) return {status: "fail", score: 0};
+    if (!elevenlabs_apikey || !elevenlabs_voiceid || !elvenlabs_model) return "fail";
     const url = `https://api.elevenlabs.io/v1/text-to-speech/${elevenlabs_voiceid}`;
 
     return await safeFetch(`${url}${additionalUrls.elevenlabs}`, {
@@ -103,7 +63,7 @@ const backendHandlers: Record<
 
   openai_tts: async (params) => {
     const { openai_tts_apikey, openai_tts_url, openai_tts_model, openai_tts_voice } = params.openai_tts || {};
-    if (!openai_tts_model || !openai_tts_apikey || !openai_tts_url || !openai_tts_voice) return {status: "fail", score: 0};
+    if (!openai_tts_model || !openai_tts_apikey || !openai_tts_url || !openai_tts_voice) return "fail";
 
     return await safeFetch(`${openai_tts_url}${additionalUrls.openai_tts}`, {
       method: "POST",
@@ -152,7 +112,7 @@ const backendHandlers: Record<
 
   piper: async (params) => {
     const { piper_url } = params.piper || {};
-    if (!piper_url) return {status: "fail", score: 0};
+    if (!piper_url) return "fail";
     const newUrl = new URL(piper_url);
     newUrl.searchParams.append('text', message);
 
@@ -161,7 +121,7 @@ const backendHandlers: Record<
 
   coquiLocal: async (params) => {
     const { coquiLocal_url, coquiLocal_voiceid } = params.coquiLocal || {};
-    if (!coquiLocal_url || !coquiLocal_voiceid) return {status: "fail", score: 0};
+    if (!coquiLocal_url || !coquiLocal_voiceid) return "fail";
 
     return await safeFetch(`${coquiLocal_url}${additionalUrls.coquiLocal}`, {
       method: "POST",
@@ -172,15 +132,15 @@ const backendHandlers: Record<
     });
   },
 
-  speecht5: async () => { return {status: "pass", score: 100}; },
+  speecht5: async () => "fail",
 };
 
 // Dispatcher function
 export async function ttsDiagnosis(
   backend: string,
   params: TTSBackend,
-): Promise<EvaluationResult> {
+): Promise<string> {
   const handler = backendHandlers[backend];
-  if (!handler) return {status: "fail", score: 0};
+  if (!handler) return "fail";
   return await handler(params);
 }

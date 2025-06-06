@@ -1,14 +1,10 @@
-import { VisionBackend } from "@/types/backend";
-import { EvaluationResult } from "./diagnosisScript";
+import { VisionBackend } from "@/utils/diagnosisUtils";
 
 const additionalUrls = {
   vision_openai: "/v1/chat/completions",
   vision_llamacpp: "/completion",
   vision_ollama: "/api/chat",
 };
-
-const TIME_OUT = 20000;
-const MIN_DURATION = 5000;
 
 export async function loadImage(
     url: string,
@@ -67,70 +63,35 @@ export async function loadImage(
 async function safeFetch(
   fullUrl: string,
   options?: RequestInit,
-  timeoutMs = TIME_OUT
-): Promise<EvaluationResult> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  const start = performance.now();
+): Promise<string> {
   try {
     if (!options) {
         const res = await fetch(fullUrl);
-        const end = performance.now();
-        clearTimeout(id);
-        const duration = end - start;
         const status = res.ok ? "pass" : "fail";
-        const score = calculateScore({ status, duration });
-
-        return { status, score };
+        return status;
     } else {
         const res = await fetch(fullUrl, options);
-        const end = performance.now();
-        clearTimeout(id);
-        const duration = end - start;
         const status = res.ok ? "pass" : "fail";
-        const score = calculateScore({ status, duration });
-
-        return { status, score };
+        return status;
     }
-  } catch (err: any) {
-    const end = performance.now();
-    clearTimeout(id);
-    const duration = end - start;
-    const isAbort = err.name === "AbortError";
-    return { status: "fail", score: calculateScore({ status: "fail", duration, timeout: isAbort }) };
+  } catch {
+    return "fail";
   }
-}
-
-// Score calculation logic
-function calculateScore({
-  status,
-  duration,
-  timeout = false,
-}: {
-  status: "pass" | "fail";
-  duration: number;
-  timeout?: boolean;
-}): number {
-  if (timeout) return 0;
-  let score = 0;
-  if (status === "pass") score += 50;
-  if (duration < MIN_DURATION) score += 50 * ((MIN_DURATION - duration) / MIN_DURATION); 
-  return Math.round(score);
 }
 
 // Individual backend handlers
 const backendHandlers: Record<
   string,
-  (params: VisionBackend) => Promise<EvaluationResult>
+  (params: VisionBackend) => Promise<string>
 > = {
   vision_openai: async (params) => {
     const { vision_openai_apikey, vision_openai_model, vision_openai_url } =
       params.vision_openai || {};
 
     if (!vision_openai_apikey || !vision_openai_model || !vision_openai_url)
-      return {status:"fail", score: 0};
+      return "fail";
 
-    let image = await loadImage("/sample-image.jpeg");
+    let image = await loadImage("/bg/bg-landscape1.jpg");
     const messages = [
       {
         role: "user",
@@ -172,10 +133,10 @@ const backendHandlers: Record<
 
   vision_llamacpp: async (params) => {
     const { vision_llamacpp_url } = params.vision_llamacpp || {};
-    if (!vision_llamacpp_url) return {status:"fail", score: 0};
+    if (!vision_llamacpp_url) return "fail";
 
 
-    let image = await loadImage("/sample-image.jpeg");
+    let image = await loadImage("/bg/bg-landscape1.jpg");
     const prompt = `User: Describe the image as accurately as possible`;
 
     return await safeFetch(`${vision_llamacpp_url}${additionalUrls.vision_llamacpp}`, {
@@ -202,9 +163,9 @@ const backendHandlers: Record<
   vision_ollama: async (params) => {
     const { vision_ollama_url, vision_ollama_model } =
       params.vision_ollama || {};
-    if (!vision_ollama_url || !vision_ollama_model) return {status:"fail", score: 0};
+    if (!vision_ollama_url || !vision_ollama_model) return "fail";
 
-    let image = await loadImage("/sample-image.jpeg");
+    let image = await loadImage("/bg/bg-landscape1.jpg");
     const messages = [
         {
           role: "user",
@@ -231,8 +192,8 @@ const backendHandlers: Record<
 export async function visionDiagnosis(
   backend: string,
   params: VisionBackend,
-): Promise<EvaluationResult> {
+): Promise<string> {
   const handler = backendHandlers[backend];
-  if (!handler) return {status:"fail", score: 0};
+  if (!handler) return "fail";
   return await handler(params);
 }

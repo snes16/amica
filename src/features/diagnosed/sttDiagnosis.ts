@@ -1,14 +1,10 @@
-import { STTBackend } from "@/types/backend";
+import { STTBackend } from "@/utils/diagnosisUtils";
 import { WaveFile } from "wavefile";
-import { EvaluationResult } from "./diagnosisScript";
 
 const additionalUrls = {
   openai_whisper: "/v1/audio/transcriptions",
   whispercpp: "/inference",
 };
-
-const TIME_OUT = 8000;
-const MIN_DURATION = 2000;
 
 export async function loadAudioAsFloat32Array(
   url: string,
@@ -27,70 +23,33 @@ export async function loadAudioAsFloat32Array(
 async function safeFetch(
   fullUrl: string,
   options?: RequestInit,
-  timeoutMs = TIME_OUT
-): Promise<EvaluationResult> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  const start = performance.now();
-
+): Promise<string> {
   try {
     if (!options) {
         const res = await fetch(fullUrl);
-        const end = performance.now();
-        clearTimeout(id);
-        const duration = end - start;
         const status = res.ok ? "pass" : "fail";
-        const score = calculateScore({ status, duration });
-
-        return { status, score };
+        return status;
     } else {
         const res = await fetch(fullUrl, options);
-        const end = performance.now();
-        clearTimeout(id);
-        const duration = end - start;
         const status = res.ok ? "pass" : "fail";
-        const score = calculateScore({ status, duration });
-
-        return { status, score };
+        return status;
     }
-  } catch (err: any) {
-    const end = performance.now();
-    clearTimeout(id);
-    const duration = end - start;
-
-    const isAbort = err.name === "AbortError";
-    return { status: "fail", score: calculateScore({ status: "fail", duration, timeout: isAbort }) };
+  } catch {
+    return "fail";
   }
-}
-
-// Score calculation logic
-function calculateScore({
-  status,
-  duration,
-  timeout = false,
-}: {
-  status: "pass" | "fail";
-  duration: number;
-  timeout?: boolean;
-}): number {
-  if (timeout) return 0;
-  let score = 0;
-  if (status === "pass") score += 50;
-  if (duration < MIN_DURATION) score += 50 * ((MIN_DURATION - duration) / MIN_DURATION); 
-  return Math.round(score);
 }
 
 // Individual backend handlers
 const backendHandlers: Record<
   string,
-  (params: STTBackend) => Promise<EvaluationResult>
+  (params: STTBackend) => Promise<string>
 > = {
   whisper_openai: async (params) => {
     const { openai_whisper_apikey, openai_whisper_model, openai_whisper_url } =
       params.whisper_openai || {};
 
     if (!openai_whisper_apikey || !openai_whisper_model || !openai_whisper_url)
-      return {status: "fail", score: 0};
+      return "fail";
 
     let audio = await loadAudioAsFloat32Array("/sample-voice.wav");
     const wav = new WaveFile();
@@ -116,7 +75,7 @@ const backendHandlers: Record<
 
   whispercpp: async (params) => {
     const { whispercpp_url } = params.whispercpp || {};
-    if (!whispercpp_url) return {status: "fail", score: 0};
+    if (!whispercpp_url) return "fail";
 
     let audio = await loadAudioAsFloat32Array("/sample-voice.wav");
     const wav = new WaveFile();
@@ -136,15 +95,15 @@ const backendHandlers: Record<
     });
   },
 
-  whisper_browser: async () => { return {status: "pass", score: 100}; }
+  whisper_browser: async () => "pass",
 };
 
 // Dispatcher function
 export async function sttDiagnosis(
   backend: string,
   params: STTBackend,
-): Promise<EvaluationResult> {
+): Promise<string> {
   const handler = backendHandlers[backend];
-  if (!handler) return {status: "fail", score: 0};
+  if (!handler) return "fail";
   return await handler(params);
 }

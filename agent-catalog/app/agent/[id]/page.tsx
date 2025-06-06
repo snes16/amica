@@ -1,24 +1,52 @@
-"use client";
+import { Metadata } from "next";
+import { fetchAgents } from "@/hooks/use-agents";
+import { Agent } from "@/types/agent";
+import AgentClient from "./AgentClient";
+import { QueryProvider } from "../../ClientQueryProvider";
 
-import { useAgents } from "@/hooks/use-agents";
-import { AgentDetails } from "@/components/agent-details";
 
-export default function AgentPageContent({ params }: { params: { id: string } }) {
-  const { agents, loading, error } = useAgents();
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const agentResult = await fetchAgents(params.id);
 
-  const agent = agents.find((agent) => agent.id === params.id);
+  const agent: Agent | null =
+    agentResult && !Array.isArray(agentResult) ? agentResult : null;
 
+  const title = agent?.name ?? "Agent Profile";
+  const description = agent?.description ?? "Meet our intelligent agent.";
+  const image = agent?.avatar ?? "/default-agent-image.png";
+  const url = `${process.env.NEXT_PUBLIC_PRODUCTION_URL}/agent/${params.id}`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url,
+      type: "profile",
+      images: [
+        {
+          url: image,
+          width: 800,
+          height: 600,
+          alt: `${title}'s profile image`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
+    },
+  };
+}
+
+export default async function AgentPage({ params }: { params: { id: string } }) {
   return (
-    <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-sm border-b">
-      {error ? (
-        <div className="p-4 text-red-500">Error loading agents: {error}</div>
-      ) : !agent || loading ? (
-        <div className="flex justify-center items-center p-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-        </div>
-      ) : (
-        <AgentDetails agent={agent} />
-      )}
-    </div>
+    <QueryProvider>
+      <AgentClient id={params.id} />
+    </QueryProvider>
+
   );
 }

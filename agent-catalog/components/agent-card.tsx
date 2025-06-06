@@ -8,7 +8,8 @@ import { MessageSquare, Info } from "lucide-react"
 import Image from "next/image"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { useState, useEffect, useRef } from "react"
+import { useDiagnosisRunner } from "@/hooks/use-diagnosis"
+import { useEffect, useRef, useState } from "react"
 
 interface AgentCardProps {
   agent: Agent
@@ -18,16 +19,16 @@ interface AgentCardProps {
 const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 
 export function AgentCard({ agent, index }: AgentCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const descriptionRef = useRef<HTMLParagraphElement>(null)
-  const [needsExpand, setNeedsExpand] = useState(false)
+  const { status, checking, handleDiagnosis } = useDiagnosisRunner(agent, index);
+  const hasChecked = useRef(false);
 
+  // Check agent status on mount
   useEffect(() => {
-    if (descriptionRef.current) {
-      const isOverflowing = descriptionRef.current.scrollHeight > descriptionRef.current.clientHeight
-      setNeedsExpand(isOverflowing)
+    if (!hasChecked.current) {
+      handleDiagnosis();
+      hasChecked.current = true;
     }
-  }, [descriptionRef])
+  }, []);
 
   return (
     <motion.div
@@ -56,36 +57,26 @@ export function AgentCard({ agent, index }: AgentCardProps) {
             <div className="flex items-center justify-between">
               <h3 className="font-orbitron font-semibold text-lg text-white">{agent.name}</h3>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-neon-pink font-orbitron">{agent.price} AIUS</span>
+                <span className="text-sm font-medium text-neon-pink font-orbitron">{agent.price?.toPrecision(2)} AIUS</span>
                 <Badge
                   variant="secondary"
                   className="bg-neon-blue border-0 text-white font-roboto-mono hover:bg-neon-blue"
                 >
-                  {agent.status}
+                  {checking ? "loading" : status || agent.status}
                 </Badge>
               </div>
             </div>
             <div className="space-y-1">
               <p className="text-sm text-blue-100/70 font-roboto-mono">Token: {agent.token}</p>
               <p className="text-sm text-blue-100/70 font-roboto-mono">
-                Tier: {agent.tier.name} (Level {agent.tier.level})
+                Tier: {agent.tier?.name} (Level {agent.tier?.level})
               </p>
             </div>
-            <div className="relative">
-              <p
-                ref={descriptionRef}
-                className={`text-sm text-blue-100/70 font-roboto-mono ${!isExpanded ? "line-clamp-3" : ""}`}
-              >
+            {/* Scrollable Description */}
+            <div className="max-h-24 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar]:h-4/6 [&::-webkit-scrollbar-track]:bg-neon-blue/25 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
+              <p className="text-sm text-blue-100/70 font-roboto-mono whitespace-pre-line">
                 {agent.description}
               </p>
-              {needsExpand && !isExpanded && (
-                <button
-                  onClick={() => setIsExpanded(true)}
-                  className="absolute bottom-0 right-0 text-xs text-neon-blue hover:text-neon-pink transition-colors bg-scifi-dark pl-2"
-                >
-                  Read more
-                </button>
-              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -94,11 +85,13 @@ export function AgentCard({ agent, index }: AgentCardProps) {
               size="sm"
               className="w-full font-roboto-mono border-neon-blue/50 text-neon-blue hover:bg-neon-blue/20 hover:text-white transition-colors"
               onClick={() => window.open(`${AMICA_URL}/agent/${agent.id}`, "_blank", "noopener,noreferrer")}
+              disabled={status !== "active"}
+              title={status !== "active" ? "Chat is disabled: Agent is inactive." : ""}
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               Chat
             </Button>
-            <Link href={`/agent/${agent.id}`} passHref className="w-full">
+            <Link href={`/agent/${agent.agentId}`}>
               <Button
                 variant="outline"
                 size="sm"

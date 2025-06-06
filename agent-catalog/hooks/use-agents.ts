@@ -1,129 +1,259 @@
-"use client";
-
 import { ethers } from "ethers";
+import { UNIPAIR_ABI } from "@/utils/abi/uniswapPair";
+import { AgentTier, calculatePrice, calculateTier } from "@/utils/agentUtils";
 import type { Agent } from "@/types/agent";
-import { ERC721_ABI } from "@/utils/abi/erc721";
-import { useQuery } from "@tanstack/react-query";
-import { CACHE_TTL } from "@/lib/query-client"; 
+import { useQuery } from "wagmi/query";
+import {
+  getMainContract,
+  getMainEthcallContract,
+  getEthcallProvider,
+  getProvider,
+} from "@/lib/provider";
+import { decodeAgentId } from "@/utils/fileUtils";
+import { supabase } from "@/utils/supabase";
+import { extractKeyNames } from "./use-backend";
 
-export function useAgents() {
+// Metadata keys defined in the smart contract
+const METADATA_KEYS = [
+  "agent_id",
+  "name",
+  "description",
+  "image",
+  "vrm_url",
+  "bg_url",
+  "tags",
+  "agent_category",
+  "chatbot_backend",
+  "tts_backend",
+  "stt_backend",
+  "vision_backend",
+  "brain",
+  "virtuals",
+  "eacc",
+  "uos",
+];
+
+// Public React hook to load agent(s)
+export function useAgents(agentId?: string) {
   const {
     data: agents = [],
-    isLoading: loading,
+    isLoading,
     error,
   } = useQuery({
-    queryKey: ['agents'],
-    queryFn: fetchAgents,
-    // These will fall back to the defaults in queryClient if not specified
-    // You can override them here if needed for this specific query
+    queryKey: ["agents", agentId],
+    queryFn: () => fetchAgents(agentId),
   });
 
-  return { agents, loading, error: error ? (error as Error).message : null };
+  return {
+    agents,
+    loading: isLoading,
+    error: error ? (error as Error).message : null,
+  };
 }
 
-async function fetchAgents(): Promise<Agent[]> {
-  try {
-    // Load cached agents from localStorage
-    const cachedData = localStorage.getItem("agents");
-    const cachedTimestamp = localStorage.getItem("agents_timestamp");
-    
-    const now = Date.now();
-    const isCacheValid = cachedData && cachedTimestamp && 
-      (now - parseInt(cachedTimestamp, 10)) < CACHE_TTL;
-    
-    // Return cached data if it's still valid
-    if (isCacheValid) {
-      return JSON.parse(cachedData) as Agent[];
-    }
-    
-    const INFURA_RPC = process.env.NEXT_PUBLIC_INFURA_RPC;
-    const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
-
-    if (!CONTRACT_ADDRESS || !INFURA_RPC) {
-      throw new Error("Environment variables are not defined");
-    }
-
-    const provider = new ethers.JsonRpcProvider(INFURA_RPC);
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, ERC721_ABI, provider);
-
-    // Get total number of tokens
-    const totalNFTs = await contract.tokenIdCounter();
-    
-    // Create batch of token IDs (in chunks to avoid too large requests)
-    const tokenIds = Array.from({ length: Number(totalNFTs) }, (_, i) => i);
-    const metadataKeys = ["name", "description", "image", "vrm_url", "bg_url", "tags", "chatbot_backend", "tts_backend", "stt_backend", "vision_backend"];
-    
-    // Fetch in chunks of 20 tokens at a time to avoid request size limits
-    const chunkSize = 20;
-    const fetchedAgents: Agent[] = [];
-    
-    for (let i = 0; i < tokenIds.length; i += chunkSize) {
-      const chunk = tokenIds.slice(i, i + chunkSize);
-      
-      // Create a multicall-style batch of promises
-      const promises = chunk.map(tokenId => 
-        contract.getMetadata(tokenId, metadataKeys)
-          .then((metadata: string[]) => {
-            if (!metadata || metadata.length === 0 || metadata[0] === "0x") {
-              return null;
-            }
-            
-            return {
-              id: `${tokenId}`,
-              name: metadata[0] || "Unknown",
-              token: "AINFT",
-              description: metadata[1] || "No description available",
-              price: 0,
-              status: "active",
-              avatar: metadata[2],
-              category: "System",
-              tags: metadata[5].split(","),
-              tier: { name: "Teen", level: 4, stakedAIUS: 5000 },
-              vrmUrl: metadata[3],
-              bgUrl: metadata[4],
-              config: {
-                chatbotBackend: metadata[6],
-                ttsBackend: metadata[7],
-                sttBackend: metadata[8],
-                visionBackend: metadata[9],
-                amicaLifeBackend: "amicaLife", 
-              }
-            };
-          })
-          .catch(err => {
-            console.error(`Error fetching metadata for token ${tokenId}:`, err);
-            return null;
-          })
+// Fetch agent(s) from blockchain and sync with Supabase
+export async function fetchAgents(
+  agentId?: string,
+): Promise<Agent[] | Agent | null> {
+  const contract = getMainContract();
+  const tokenIds = agentId
+    ? [decodeAgentId(agentId)]
+    : Array.from(
+        { length: Number(await contract.tokenIdCounter()) },
+        (_, i) => i,
       );
-      
-      // Execute batch
-      const results = await Promise.all(promises);
-      fetchedAgents.push(...results.filter(Boolean) as Agent[]);
-    }
 
-    // Merge with existing cached data if there was any
-    const cachedAgents = cachedData ? JSON.parse(cachedData) as Agent[] : [];
-    const updatedAgents = mergeAgents(cachedAgents, fetchedAgents);
+  const syncedAgents = await syncSupabaseWithBlockchain(tokenIds, contract);
+  const enrichedAgents = await fetchAgentPriceAndTiers(syncedAgents);
 
-    // Store updated data in localStorage with timestamp
-    localStorage.setItem("agents", JSON.stringify(updatedAgents));
-    localStorage.setItem("agents_timestamp", now.toString());
-    
-    return updatedAgents;
-  } catch (err) {
-    console.error("Error fetching agents:", err);
-    throw new Error("Failed to fetch agents");
-  }
+  return agentId
+    ? enrichedAgents.find((a) => a.agentId === agentId) || null
+    : enrichedAgents;
 }
 
-function mergeAgents(cached: Agent[], fetched: Agent[]): Agent[] {
-  const agentMap = new Map<string, Agent>();
+// Sync metadata from blockchain into Supabase
+export async function syncSupabaseWithBlockchain(
+  tokenIds: number[],
+  contract: ethers.Contract,
+): Promise<Agent[]> {
+  const ethcallContract = getMainEthcallContract();
+  const ethcallProvider = await getEthcallProvider();
 
-  // Add cached agents first
-  cached.forEach(agent => agentMap.set(agent.id, agent));
+  const idsToCheck = tokenIds.map(String);
 
-  // Update or add new fetched agents
-  fetched.forEach(agent => agentMap.set(agent.id, agent));
+  // 🧩 Fetch only relevant agents from Supabase
+  const { data: existingAgents = [], error } = await supabase
+    .from("agents")
+    .select("*")
+    .in("id", idsToCheck);
 
-  return Array.from(agentMap.values());
+  if (error) {
+    console.error("Failed to fetch agents from Supabase:", error);
+    return [];
+  }
+
+  // Ensure consistent string types for comparison
+  const existingIds = new Set(existingAgents?.map((agent) => String(agent.id)));
+
+  // Compare using the same string format
+  const missingTokenIds = tokenIds.filter((id) => !existingIds.has(String(id)));
+
+  // 🧱 If all agents are already in Supabase, return them
+  if (missingTokenIds.length === 0) return existingAgents!;
+
+  // 🔍 Fetch missing metadata from the blockchain
+  const metadataCalls = missingTokenIds.map((id) =>
+    ethcallContract.getMetadata(id, METADATA_KEYS),
+  );
+  const metadataResults = await ethcallProvider.all(metadataCalls);
+
+  const newAgents: Agent[] = [];
+  const newBackends: object[] = [];
+
+  for (let i = 0; i < missingTokenIds.length; i++) {
+    const metadata = metadataResults[i];
+    const tokenId = missingTokenIds[i];
+
+    if (
+      !Array.isArray(metadata) ||
+      metadata.length === 0 ||
+      metadata[0] === "0x"
+    )
+      continue;
+
+    const [
+      agentId,
+      name,
+      description,
+      image,
+      vrmUrl,
+      bgUrl,
+      tags,
+      category,
+      chatbot,
+      tts,
+      stt,
+      vision,
+      brain,
+      virtuals,
+      eacc,
+      uos,
+    ] = metadata;
+
+    const integrations: Record<string, string> = {};
+    if (brain) integrations.brain = brain;
+    if (virtuals) integrations.virtuals = virtuals;
+    if (eacc) integrations.eacc = eacc;
+    if (uos) integrations.uos = uos;
+
+    const config = { chatbot, tts, stt, vision, amicaLife: "amicaLife" };
+
+    newAgents.push({
+      id: String(tokenId),
+      agentId,
+      name: name || "Unknown",
+      description: description || "No description available",
+      status: "status", // optional: update dynamically
+      avatar: image,
+      token: "AINFT",
+      category: category || "All Agents",
+      tags: tags?.split(",") || [],
+      vrmUrl,
+      bgUrl,
+      config,
+      integrations,
+    });
+
+    const { keysMap, keysList } = extractKeyNames(config);
+    const backendLists: string[] = await contract.getMetadata(
+      tokenId,
+      keysList,
+    );
+
+    if (!backendLists || backendLists.length !== backendLists.length) {
+      throw new Error("Incomplete metadata response");
+    }
+
+    const backendResult: Record<string, Record<string, string>> = {};
+    let index = 0;
+
+    // Assign metadata values back to the appropriate backend sections
+    for (const backendName in keysMap) {
+      backendResult[backendName] = {};
+      for (const field of keysMap[backendName]) {
+        backendResult[backendName][field] = backendLists[index++];
+      }
+    }
+
+    newBackends.push({ agentId, ...backendResult });
+  }
+
+  if (newAgents.length > 0) {
+    const { error: agentsUpsertError } = await supabase
+      .from("agents")
+      .upsert(newAgents);
+    const { error: backendUpsertError } = await supabase
+      .from("agent-backend")
+      .upsert(newBackends);
+
+    if (agentsUpsertError) {
+      console.error("Failed to upsert agents:", agentsUpsertError);
+    }
+    if (backendUpsertError) {
+      console.error("Failed to upsert backends:", backendUpsertError);
+    }
+  }
+
+  return [...existingAgents!, ...newAgents];
+}
+
+// Fetch and enrich agents with price and tier info
+export async function fetchAgentPriceAndTiers(
+  agents: Agent[],
+): Promise<Agent[]> {
+  const provider = getProvider();
+  const contract = getMainContract();
+  const pairContractCache = new Map<string, ethers.Contract>();
+  const token0Cache = new Map<string, string>();
+
+  const updatedAgents: Agent[] = [];
+
+  for (const agent of agents) {
+    const tokenId = Number(agent.id);
+    let price = 0;
+    let stakedAius = 0;
+    let tier: AgentTier = { name: "None", level: 0, stakedAIUS: 0 };
+
+    try {
+      const tokenData = await contract.getTokenData(tokenId);
+      [stakedAius, price] = await calculatePrice(
+        contract,
+        provider,
+        pairContractCache,
+        token0Cache,
+        tokenData,
+      );
+      tier = await calculateTier(
+        contract,
+        tokenId,
+        price,
+        stakedAius,
+        tokenData,
+      );
+    } catch (err) {
+      const reason = (err as any)?.revert?.args?.[0] ?? (err as any)?.reason;
+      if (reason === "Pair not created") {
+        console.warn(`Token ${tokenId}: Pair not created`);
+      } else {
+        console.warn(
+          `Failed to calculate price/tier for token ${tokenId}`,
+          err,
+        );
+      }
+    }
+
+    updatedAgents.push({ ...agent, price, tier });
+  }
+
+  return updatedAgents;
 }

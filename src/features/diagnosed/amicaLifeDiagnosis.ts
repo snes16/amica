@@ -1,13 +1,12 @@
-import { AmicaLife } from "@/types/backend";
-import { EvaluationResult } from "./diagnosisScript";
+import { AmicaLife } from "@/utils/diagnosisUtils";
 
 const backendHandlers: Record<
   string,
-  (params: AmicaLife) => Promise<EvaluationResult>
+  (params: AmicaLife) => Promise<string>
 > = {
   amicaLife: async (params) => {
     const { amica_life_enabled, min_time_interval_sec, max_time_interval_sec, time_to_sleep_sec, idle_text_prompt } = params.amicaLife || {};
-    if (!amica_life_enabled || !min_time_interval_sec || !max_time_interval_sec || !time_to_sleep_sec || !idle_text_prompt ) return {status: "fail", score: 0};
+    if (!amica_life_enabled || !min_time_interval_sec || !max_time_interval_sec || !time_to_sleep_sec || !idle_text_prompt ) return "fail";
 
     try {
       const parsed = JSON.parse(idle_text_prompt);
@@ -19,13 +18,13 @@ const backendHandlers: Record<
         typeof parsed !== "object" ||
         !parsed.idleTextPrompt
       ) {
-        return {status: "fail", score: 0};
+        return "fail";
       }
     } catch {
-      return {status: "fail", score: 0};
+      return "fail";
     }
 
-    return {status: "pass", score: 100};
+    return "pass";
   },
 
 };
@@ -34,8 +33,8 @@ const backendHandlers: Record<
 export async function amicaLifeDiagnosis(
   backend: string,
   params: AmicaLife
-): Promise<EvaluationResult> {
+): Promise<string> {
   const handler = backendHandlers[backend];
-  if (!handler) return {status: "fail", score: 0};
+  if (!handler) return "fail";
   return await handler(params);
 }
