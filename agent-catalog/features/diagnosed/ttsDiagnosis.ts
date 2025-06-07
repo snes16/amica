@@ -26,7 +26,9 @@ async function safeFetch(
 
   try {
     if (!options) {
-        const res = await fetch(fullUrl);
+        const res = await fetch(fullUrl, {
+          signal: controller.signal,
+        });
         const end = performance.now();
         clearTimeout(id);
         const duration = end - start;
@@ -35,7 +37,10 @@ async function safeFetch(
 
         return { status, score };
     } else {
-        const res = await fetch(fullUrl, options);
+        const res = await fetch(fullUrl, {
+          ...options,
+          signal: controller.signal, 
+        });
         const end = performance.now();
         clearTimeout(id);
         const duration = end - start;

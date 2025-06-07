@@ -131,7 +131,7 @@ export function AgentDemo({ agent, talentShow, setTalentShow, talentRunning, set
 
   // Initialize Amica Life
   useEffect(() => {
-    if (!bot.initialized || !config?.amica_life_params.amica_life_enabled) return;
+    if (!bot.initialized || !config || config.amica_life_params.amica_life_enabled === "true") return;
     amicaLife.initialize(config, viewer, bot, chatSpeaking, setSubconciousLogs);
   }, [bot.initialized, config, viewer, amicaLife, chatSpeaking]);
 

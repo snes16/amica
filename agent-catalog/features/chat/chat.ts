@@ -298,7 +298,7 @@ export class Chat {
   }
 
   public async runFullInteraction(message: string, vision: boolean) {
-    vision ? await this.getVisionResponse(message) : await this.receiveMessageFromUser(message,this.config?.amica_life_params.amica_life_enabled === "true");
+    vision ? await this.getVisionResponse(message) : await this.receiveMessageFromUser(message,false);
     await wait(3000);
     await this.onChatComplete;
   }
