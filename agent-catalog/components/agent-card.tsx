@@ -13,12 +13,13 @@ import { useEffect, useRef, useState } from "react"
 
 interface AgentCardProps {
   agent: Agent
+  onUpdateAgent: (agent: Agent) => void
   index: number
 }
 
 const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 
-export function AgentCard({ agent, index }: AgentCardProps) {
+export function AgentCard({ agent, onUpdateAgent, index }: AgentCardProps) {
   const { status, checking, results, handleDiagnosis } = useDiagnosisRunner(agent, index);
   const hasChecked = useRef(false);
 

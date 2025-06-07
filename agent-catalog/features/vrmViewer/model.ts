@@ -204,6 +204,11 @@ export class Model {
   }
 
   public update(delta: number): void {
+    if (this._lipSync) {
+      const { volume } = this._lipSync.update();
+      this.emoteController?.lipSync("aa", volume);
+    }
+
     this.emoteController?.update(delta);
     this.mixer?.update(delta);
     this.vrm?.update(delta);

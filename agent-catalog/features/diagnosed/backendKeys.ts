@@ -7,7 +7,7 @@ export const backendKeyMap: Record<string, string[]> = {
     openrouter: ["openrouter_apikey", "openrouter_url", "openrouter_model"],
   
     elvenlabs: ["elevenlabs_apikey", "elevenlabs_voiceid", "elvenlabs_model"],
-    speecht5: ["speaker_embedding_url"],
+    speecht5: ["speecht5_speaker_embedding_url"],
     openai_tts: ["openai_tts_apikey", "openai_tts_url", "openai_tts_model", "openai_tts_voice"],
     localXTTS: [
       "localXTTS_url", "alltalk_version", "alltalk_voice",

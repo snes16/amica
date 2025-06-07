@@ -46,7 +46,7 @@ export interface ChatbotBackend {
       elevenlabs_model: string;
     };
     speecht5?: {
-      speaker_embedding_url: string;
+      speecht5_speaker_embedding_url: string;
     };
     openai_tts?: {
       openai_tts_apikey: string;

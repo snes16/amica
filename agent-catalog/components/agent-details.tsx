@@ -32,11 +32,10 @@ const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 export function AgentDetails({ agent }: AgentDetailsProps) {
-  const [vrmLoaded, setVrmLoaded] = useState(false);
-  const [vrmError, setVrmError] = useState(false);
   const [diagnosisPassed, setDiagnosisPassed] = useState(false);
   const [reserveAmount, setReserveAmount] = useState("");
   const [talentShow, setTalentShow] = useState(false);
+  const [talentRunning, setTalentRunning] = useState(false);
 
   const { isConnected, address } = useAccount();
   const { stats, priceHistory, tokenAddress, loading, error } = useTokens(Number(agent.id));
@@ -136,7 +135,7 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mt-12">
           <div className="space-y-12">
-            <AgentDemo agent={agent} talentShow={talentShow} />
+            <AgentDemo agent={agent} talentShow={talentShow} setTalentShow={setTalentShow} talentRunning={talentRunning} setTalentRunning={setTalentRunning} />
 
             {!isPairNotCreated && (<PriceChart priceHistory={isPairNotCreated ? [] : priceHistory} />)}
             <AgentVrmDiagnosis agent={agent} index={Number(agent.id)} />
@@ -157,8 +156,8 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
               <Button
                 className="bg-red-500 hover:bg-red-600 text-white font-roboto-mono"
                 onClick={() => setTalentShow(true)}
-                disabled={!diagnosisPassed}
-                title={!diagnosisPassed ? "Chat is disabled: Agent is inactive." : ""}
+                disabled={!diagnosisPassed || talentRunning}
+                title={!diagnosisPassed ? "Talent show is disabled: Agent is inactive." : ""}
               >
                 <MessageSquare className="mr-2 h-4 w-4" /> Talent Show
               </Button>

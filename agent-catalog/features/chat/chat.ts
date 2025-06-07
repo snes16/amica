@@ -89,7 +89,7 @@ export interface ChatConfig {
   stt_params: STTBackend;
   vision_params: VisionBackend;
   amica_life_params: AmicaLifeParams;
-  rvc_params?: RVC;
+  rvc_params: RVC;
   // Add more as needed
 }
 
@@ -183,6 +183,7 @@ export class Chat {
     this.setWhisperCppOutput = setWhisperCppOutput;
     this.setWhisperOpenAIOutput = setWhisperOpenAIOutput;
     this.config = config;
+    console.log("Config ", config)
 
     this.shouldStopProcessing = false;
     // these will run forever
@@ -296,8 +297,9 @@ export class Chat {
     }
   }
 
-  public async runFullInteraction(message: string, amicaLife: boolean) {
-    await this.receiveMessageFromUser(message, amicaLife);
+  public async runFullInteraction(message: string, vision: boolean) {
+    vision ? await this.getVisionResponse(message) : await this.receiveMessageFromUser(message,this.config?.amica_life_params.amica_life_enabled === "true");
+    await wait(3000);
     await this.onChatComplete;
   }
 
@@ -465,6 +467,7 @@ export class Chat {
 
     let aiTextLog = "";
     let tag = "";
+    let isThinking = false;
     let rolePlay = "";
     let receivedMessage = "";
 
@@ -494,6 +497,7 @@ export class Chat {
           aiTextLog,
           receivedMessage,
           tag,
+          isThinking,
           rolePlay,
           callback: (aiTalks: Screenplay[]): boolean => {
             // Generate & play audio for each sentence, display responses
@@ -569,9 +573,10 @@ export class Chat {
           return null;
         }
         case "elevenlabs": {
-          const voiceId = params?.elevenlabs?.elevenlabs_voiceid!;
+          const p = params as TTSBackend["elevenlabs"]
+          const voiceId = p?.elevenlabs_voiceid!;
           const voice = await elevenlabs(
-            params?.elevenlabs,
+            p,
             talk.message,
             voiceId,
           );
@@ -581,7 +586,8 @@ export class Chat {
           return voice.audio;
         }
         case "speecht5": {
-          const speakerEmbeddingUrl = params?.speecht5?.speaker_embedding_url!;
+          const p = params as TTSBackend["speecht5"]
+          const speakerEmbeddingUrl = p?.speecht5_speaker_embedding_url!;
           const voice = await speecht5(talk.message, speakerEmbeddingUrl);
           if (rvcEnabled) {
             return await this.handleRvc(voice.audio);
@@ -589,28 +595,28 @@ export class Chat {
           return voice.audio;
         }
         case "openai_tts": {
-          const voice = await openaiTTS(params?.openai_tts, talk.message);
+          const voice = await openaiTTS(params as TTSBackend["openai_tts"], talk.message);
           if (rvcEnabled) {
             return await this.handleRvc(voice.audio);
           }
           return voice.audio;
         }
         case "localXTTS": {
-          const voice = await localXTTSTTS(params?.localXTTS, talk.message);
+          const voice = await localXTTSTTS(params as TTSBackend["localXTTS"], talk.message);
           if (rvcEnabled) {
             return await this.handleRvc(voice.audio);
           }
           return voice.audio;
         }
         case "piper": {
-          const voice = await piper(params?.piper, talk.message);
+          const voice = await piper(params as TTSBackend["piper"], talk.message);
           if (rvcEnabled) {
             return await this.handleRvc(voice.audio);
           }
           return voice.audio;
         }
         case "coquiLocal": {
-          const voice = await coquiLocal(params?.coquiLocal, talk.message);
+          const voice = await coquiLocal(params as TTSBackend["coquiLocal"], talk.message);
           if (rvcEnabled) {
             return await this.handleRvc(voice.audio);
           }
@@ -630,16 +636,17 @@ export class Chat {
     const chatbotBackend = this.config?.chatbot_backend;
     const name = this.config?.name!;
     const system_prompt = this.config?.system_prompt!;
+    const params = this.config?.chatbot_params;
 
     switch (chatbotBackend) {
       case "openai":
         return getOpenAiChatResponseStream(
-          this.config?.chatbot_params.openai,
+          params as ChatbotBackend["openai"],
           messages,
         );
       case "llamacpp":
         return getLlamaCppChatResponseStream(
-          this.config?.chatbot_params.llamacpp,
+          params as ChatbotBackend["llamacpp"],
           name,
           system_prompt,
           messages,
@@ -648,19 +655,19 @@ export class Chat {
         return getWindowAiChatResponseStream(name, messages);
       case "ollama":
         return getOllamaChatResponseStream(
-          this.config?.chatbot_params.ollama,
+          params as ChatbotBackend["ollama"],
           messages,
         );
       case "koboldai":
         return getKoboldAiChatResponseStream(
           name,
           system_prompt,
-          this.config?.chatbot_params.koboldai,
+          params as ChatbotBackend["koboldai"],
           messages,
         );
       case "openrouter":
         return getOpenRouterChatResponseStream(
-          this.config?.chatbot_params.openrouter,
+          params as ChatbotBackend["openrouter"],
           messages,
         );
     }
@@ -731,13 +738,18 @@ export class Chat {
   }
 
   // Vision
-  public async getVisionResponse(imageData: string) {
+  public async getVisionResponse(imageData: string, onlyVisionResponse?: boolean) {
     try {
       const visionBackend = this.config?.vision_backend;
       const name = this.config?.name!;
       const vision_system_prompt = this.config?.vision_system_prompt!;
+      const params = this.config?.vision_params;
 
       console.debug("vision_backend", visionBackend);
+
+      this.onChatComplete = new Promise<void>((resolve) => {
+        this.onChatCompleteResolver = resolve;
+      });
 
       let res = "";
       if (visionBackend === "vision_llamacpp") {
@@ -753,7 +765,7 @@ export class Chat {
         res = await getLlavaCppChatResponse(
           name,
           vision_system_prompt,
-          this.config?.vision_params.vision_llamacpp,
+          params as VisionBackend["vision_llamacpp"],
           messages,
           imageData,
         );
@@ -768,7 +780,7 @@ export class Chat {
         ];
 
         res = await getOllamaVisionChatResponse(
-          this.config?.vision_params.vision_ollama,
+          params as VisionBackend["vision_ollama"],
           messages,
           imageData,
         );
@@ -795,12 +807,16 @@ export class Chat {
         ];
 
         res = await getOpenAiVisionChatResponse(
-          this.config?.vision_params.vision_openai,
+          params as VisionBackend["vision_openai"],
           messages,
         );
       } else {
         console.warn("vision_backend not supported", visionBackend);
         return;
+      }
+
+      if (onlyVisionResponse) {
+        return res;
       }
 
       await this.makeAndHandleStream([

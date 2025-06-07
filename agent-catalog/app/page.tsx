@@ -3,25 +3,67 @@
 import { AgentGrid } from "@/components/agent-grid";
 import { Header } from "@/components/header";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useAgents, fetchAgents } from "@/hooks/use-agents";
 
 import dynamic from "next/dynamic";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Agent } from "@/types/agent";
 import { useEffect, useState } from "react";
-
+import { fetchAgentPriceAndTiers } from "@/lib/agents";
 
 // 👇 Dynamically import the provider to avoid server-side import trace
 const ClientQueryProvider = dynamic(() => import("./ClientQueryProvider").then(mod => mod.QueryProvider), {
   ssr: false,
 });
 
-function HomeContent({ backgroundColor }: { backgroundColor: any }) {
-  const { agents, loading, error } = useAgents() as {
-      agents: Agent[];
-      loading: boolean;
-      error: string | null;
+function HomeContent() {
+  const { scrollY } = useScroll();
+  const backgroundColor = useTransform(scrollY, [0, 300], ["rgb(26, 26, 46)", "rgb(255, 255, 255)"]);
+
+  const [agents, setAgents] = useState<Agent[] | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const updateAgent = (updatedAgent: Agent) => {
+    setAgents(prevAgents =>
+      prevAgents
+        ? prevAgents.map(agent =>
+          agent.agentId === updatedAgent.agentId ? updatedAgent : agent
+        )
+        : null
+    );
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAgents = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/agents");
+        if (!res.ok) throw new Error("Failed to fetch agents. ");
+        const data = await res.json();
+        const agents = await fetchAgentPriceAndTiers(data);
+        if (isMounted) {
+          setAgents(Array.isArray(agents) ? agents : [agents]);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          setError(err.message || "Error loading agents.");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
     };
+
+    loadAgents();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <motion.main className="min-h-screen" style={{ backgroundColor }}>
@@ -37,7 +79,7 @@ function HomeContent({ backgroundColor }: { backgroundColor: any }) {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
           </div>
         ) : (
-          <AgentGrid agents={agents!} />
+          <AgentGrid agents={agents!} onUpdateAgent={updateAgent}/>
         )}
       </div>
     </motion.main>
@@ -45,12 +87,9 @@ function HomeContent({ backgroundColor }: { backgroundColor: any }) {
 }
 
 export default function Page() {
-  const { scrollY } = useScroll();
-  const backgroundColor = useTransform(scrollY, [0, 300], ["rgb(26, 26, 46)", "rgb(255, 255, 255)"]);
-
   return (
     <ClientQueryProvider>
-      <HomeContent backgroundColor={backgroundColor} />
+      <HomeContent />
     </ClientQueryProvider>
   );
 }

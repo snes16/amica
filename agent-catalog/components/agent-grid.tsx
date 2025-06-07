@@ -12,6 +12,7 @@ import Link from "next/link"
 
 interface AgentGridProps {
   agents: Agent[]
+  onUpdateAgent: (agent: Agent) => void 
 }
 
 const categories = [
@@ -25,7 +26,7 @@ const categories = [
   { name: "Personal Assistant", icon: Briefcase, key: "personalAssistant" },
 ]
 
-export function AgentGrid({ agents }: AgentGridProps) {
+export function AgentGrid({ agents, onUpdateAgent }: AgentGridProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [sortOption, setSortOption] = useState("all")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -133,7 +134,7 @@ export function AgentGrid({ agents }: AgentGridProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredAgents.length > 0 ? (
               filteredAgents.map((agent, index) => (
-                <AgentCard key={agent.id} agent={agent} index={index} />
+                <AgentCard key={agent.id} agent={agent} onUpdateAgent={onUpdateAgent} index={index} />
               ))
             ) : searchQuery.length > 0 && filteredAgents.length < 1 ? (
               <motion.p
@@ -147,7 +148,7 @@ export function AgentGrid({ agents }: AgentGridProps) {
 
             ) : (
               agents.map((agent, index) => (
-                <AgentCard key={agent.agentId} agent={agent} index={index} />
+                <AgentCard key={agent.agentId} agent={agent} onUpdateAgent={onUpdateAgent} index={index} />
               ))
             )}
 

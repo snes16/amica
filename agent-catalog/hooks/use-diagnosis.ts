@@ -10,7 +10,7 @@ import {
 } from "@/components/diagnosis-result";
 import { diagnosisScript } from "@/features/diagnosed/diagnosisScript";
 import { vrmDiagnosis } from "@/features/diagnosed/vrmDiagnosis";
-import { extractKeyNames, fetchBackend } from "@/hooks/use-backend";
+import { fetchBackends } from "@/lib/backends";
 import type { Agent } from "@/types/agent";
 import { CACHE_TTL } from "@/lib/query-client";
 import { supabase } from "@/utils/supabase";
@@ -68,8 +68,7 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
       }
 
       try {
-        const { keysList, keysMap } = extractKeyNames(agent.config);
-        const fullConfig = await fetchBackend(agent.agentId,keysList, keysMap);
+        const fullConfig = await fetchBackends(agent.agentId, agent.config);
 
         const tempResults: DiagnosisResultType = { ...initialResults };
 
@@ -97,7 +96,7 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
 
         const talentScore =
           calculateTalentShowScore(tempResults).toPrecision(4);
-         tempResults["overall"] = talentScore;
+        tempResults["overall"] = talentScore;
         update("overall", talentScore);
 
         setStatus(newStatus);
@@ -131,7 +130,10 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
 
         queryClient.setQueryData(agentQueryKey, (prev: Agent | undefined) => {
           if (!prev) return prev;
-          console.log(`Update Agent ${agent.agentId} cache `,{ ...agentUpdateCache, talentShowScore: talentScore})
+          console.log(`Update Agent ${agent.agentId} cache `, {
+            ...agentUpdateCache,
+            talentShowScore: talentScore,
+          });
           return {
             ...prev,
             ...agentUpdateCache,
@@ -142,7 +144,6 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
         // refresh agent data cache
         // queryClient.invalidateQueries({ queryKey: agentQueryKey, refetchType: "active" });
         // queryClient.refetchQueries({queryKey: agentQueryKey, type: "active"});
-
       } catch (err) {
         console.error("Diagnosis process failed:", err);
       } finally {
@@ -180,8 +181,7 @@ function useDiagnosisQuery(queryKey: any[], agent: Agent) {
   return useQuery<DiagnosisResultType>({
     queryKey,
     queryFn: async () => {
-      const { keysList,keysMap } = extractKeyNames(agent.config);
-      const fullConfig = await fetchBackend(agent.agentId, keysList,keysMap);
+      const fullConfig = await fetchBackends(agent.agentId, agent.config);
       const tempResults: DiagnosisResultType = { ...initialResults };
 
       await runDiagnosisCheck(

@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAgents } from "@/hooks/use-agents";
 import { Agent } from "@/types/agent";
-import Image from "next/image";
 import { Trophy, Star, User, Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/utils/supabase";
@@ -11,6 +9,7 @@ import Link from "next/link";
 
 import { Header, LeaderboardHeader } from "@/components/header";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { fetchAgentPriceAndTiers } from "@/lib/agents";
 
 type Score = {
     agentId: string;
@@ -167,19 +166,52 @@ function AgentCard({ agent, rank, score }: { agent: Agent; rank: number; score: 
 }
 
 export default function LeaderboardPage() {
-    const { agents, loading, error } = useAgents() as {
-        agents: Agent[];
-        loading: boolean;
-        error: string | null;
-    };
-    const [scores, setScores] = useState<Score[]>([]);
-    const [checking, setChecking] = useState(true);
     const { scrollY } = useScroll();
     const backgroundColor = useTransform(scrollY, [0, 300], ["rgb(26, 26, 46)", "rgb(255, 255, 255)"]);
 
+    const [agents, setAgents] = useState<Agent[] | null>(null);
+    const [scores, setScores] = useState<Score[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [checking, setChecking] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    // Fetchs agent
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadAgents = async () => {
+            console.log("Load agents..")
+            setLoading(true);
+            setError(null);
+            try {
+                const res = await fetch("/api/agents");
+                if (!res.ok) throw new Error("Failed to fetch agents. ");
+                const data = await res.json();
+                const agents = await fetchAgentPriceAndTiers(data);
+                if (isMounted) {
+                    setAgents(Array.isArray(agents) ? agents : [agents]);
+                }
+            } catch (err: any) {
+                if (isMounted) {
+                    setError(err.message || "Error loading agents.");
+                }
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        loadAgents();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     useEffect(() => {
         const fetchScores = async () => {
+            console.log("Load scores..")
             const { data, error } = await supabase.from("agent-score").select("*");
             if (error) {
                 console.error("Error fetching scores:", error.message);
@@ -197,10 +229,6 @@ export default function LeaderboardPage() {
 
         fetchScores();
     }, []);
-
-    const agentsMap: Record<string, Agent> = Object.fromEntries(
-        agents.map((agent) => [agent.agentId, agent])
-    );
 
     return (
         <motion.main className="min-h-screen" style={{ backgroundColor }}>
@@ -251,16 +279,15 @@ export default function LeaderboardPage() {
                             {/* Agent Cards */}
                             <div className="grid gap-6">
                                 {scores.map((score, index) => {
-                                    const agent = agentsMap[score.agentId];
+                                    const agent = agents?.find(agent => agent.agentId === score.agentId);
                                     if (!agent) return null;
                                     return (
-                                        <Link href={`/agent/${score.agentId}`} passHref>
-                                        <AgentCard
-                                            key={score.agentId}
-                                            agent={agent}
-                                            rank={index}
-                                            score={score}
-                                        />
+                                        <Link key={score.agentId} href={`/agent/${score.agentId}`} passHref>
+                                            <AgentCard
+                                                agent={agent}
+                                                rank={index}
+                                                score={score}
+                                            />
                                         </Link>
                                     );
                                 })}
