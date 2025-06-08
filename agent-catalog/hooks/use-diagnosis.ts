@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   checks,
@@ -41,11 +41,16 @@ const initialResults: DiagnosisResultType = {
 export const useDiagnosisRunner = (agent: Agent, index: number) => {
   const queryClient = useQueryClient();
   const [checking, setChecking] = useState(false);
+  const checkingRef = useRef(checking);
+
+  useEffect(() => {
+    checkingRef.current = checking;
+  }, [checking]);
+
   const [status, setStatus] = useState<string | null>(null);
   const [results, setResults] = useState<DiagnosisResultType>(initialResults);
 
   const diagnosisQueryKey = ["diagnosis", agent.agentId];
-  const agentQueryKey = ["agents", agent.agentId];
 
   const {
     data: dynamicResults = initialResults,
@@ -56,7 +61,10 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
   const handleDiagnosis = useCallback(
     async (useCache: boolean = true) => {
       // Prevent concurrent runs
-      if (checking) return;
+      if (checkingRef.current === true) {
+        console.log("Already checking, aborting.");
+        return;
+      }
 
       setChecking(true);
 
@@ -103,9 +111,6 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
 
         queryClient.setQueryData(diagnosisQueryKey, tempResults);
 
-        const agentUpdateCache = {
-          status: newStatus,
-        };
         const scoreUpdateCache = {
           ...extractScoresAndOverall(tempResults),
           talentShowScore: talentScore,
@@ -127,23 +132,6 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
         if (backendUpsertError) {
           console.error("Failed to upsert agent-score:", backendUpsertError);
         }
-
-        queryClient.setQueryData(agentQueryKey, (prev: Agent | undefined) => {
-          if (!prev) return prev;
-          console.log(`Update Agent ${agent.agentId} cache `, {
-            ...agentUpdateCache,
-            talentShowScore: talentScore,
-          });
-          return {
-            ...prev,
-            ...agentUpdateCache,
-            talentShowScore: talentScore,
-          };
-        });
-
-        // refresh agent data cache
-        // queryClient.invalidateQueries({ queryKey: agentQueryKey, refetchType: "active" });
-        // queryClient.refetchQueries({queryKey: agentQueryKey, type: "active"});
       } catch (err) {
         console.error("Diagnosis process failed:", err);
       } finally {
