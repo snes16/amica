@@ -10,6 +10,7 @@ import { getKoboldAiChatResponseStream } from "@/features/chat/koboldAiChat";
 import { getOpenRouterChatResponseStream } from "@/features/chat/openRouterChat";
 
 import { processResponse } from "@/utils/processResponse";
+import { ChatbotBackend } from "@/types/backend";
 
 // Function to ask llm with custom system prompt, if doesn't want it to speak provide the chat in params as null.
 export async function askLLM(
@@ -45,17 +46,17 @@ export async function askLLM(
 
     switch (chatbotBackend) {
       case "openai":
-        return getOpenAiChatResponseStream(params.openai, messages);
+        return getOpenAiChatResponseStream(params as ChatbotBackend["openai"], messages);
       case "llamacpp":
-        return getLlamaCppChatResponseStream(params.llamacpp, name, system_prompt, messages);
+        return getLlamaCppChatResponseStream(params as ChatbotBackend["llamacpp"], name, system_prompt, messages);
       case "windowai":
         return getWindowAiChatResponseStream(name, messages);
       case "ollama":
-        return getOllamaChatResponseStream(params.ollama, messages);
+        return getOllamaChatResponseStream(params as ChatbotBackend["ollama"], messages);
       case "koboldai":
-        return getKoboldAiChatResponseStream(name, system_prompt, params.koboldai ,messages);
+        return getKoboldAiChatResponseStream(name, system_prompt, params as ChatbotBackend["koboldai"] ,messages);
       case "openrouter":
-        return getOpenRouterChatResponseStream(params.openrouter, messages);
+        return getOpenRouterChatResponseStream(params as ChatbotBackend["openrouter"], messages);
       default:
         return getEchoChatResponseStream(messages);
     }
@@ -94,6 +95,7 @@ export async function askLLM(
   let sentences = new Array<string>();
   let aiTextLog = "";
   let tag = "";
+  let isThinking = false;
   let rolePlay = "";
   let result = "";
 
@@ -125,6 +127,7 @@ export async function askLLM(
           aiTextLog,
           receivedMessage,
           tag,
+          isThinking,
           rolePlay,
           callback: (aiTalks: Screenplay[]): boolean => {
             // Generate & play audio for each sentence, display responses

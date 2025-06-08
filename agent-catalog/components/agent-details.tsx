@@ -64,12 +64,6 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
 
   const isPairNotCreated = error == "Pair not created";
 
-  useEffect(() => {
-    if (agent.status === "active") {
-      setDiagnosisPassed(true);
-    }
-  }, [agent.status]);
-
   // refetch aius and reserve amount after reserve, reload page if pair created
   useEffect(() => {
     if (reserveSuccess) {
@@ -138,7 +132,7 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
             <AgentDemo agent={agent} talentShow={talentShow} setTalentShow={setTalentShow} talentRunning={talentRunning} setTalentRunning={setTalentRunning} />
 
             {!isPairNotCreated && (<PriceChart priceHistory={isPairNotCreated ? [] : priceHistory} />)}
-            <AgentVrmDiagnosis agent={agent} index={Number(agent.id)} />
+            <AgentVrmDiagnosis agent={agent} index={Number(agent.id)} setDiagnosisIsPassed={setDiagnosisPassed} />
           </div>
           <div className="space-y-8">
             <div className="flex justify-center space-x-4 mb-8">

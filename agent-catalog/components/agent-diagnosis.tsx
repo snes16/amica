@@ -2,7 +2,7 @@
 
 import { Button } from "./ui/button";
 import { useDiagnosisRunner } from "@/hooks/use-diagnosis";
-import { DiagnosisResult } from "./diagnosis-result";
+import { CheckKey, DiagnosisResult, DiagnosisResultType } from "./diagnosis-result";
 import { checks } from "@/components/diagnosis-result";
 import { useEffect, useRef, useState } from "react";
 import { Agent } from "@/types/agent";
@@ -10,11 +10,13 @@ import { Agent } from "@/types/agent";
 interface AgentVrmDiagnosisProps {
   agent: Agent
   index: number;
+  setDiagnosisIsPassed: (isPassed: boolean) => void;
 }
 
 export function AgentVrmDiagnosis({
   agent,
-  index
+  index,
+  setDiagnosisIsPassed,
 }: AgentVrmDiagnosisProps) {
   const hasChecked = useRef(false);
 
@@ -27,6 +29,18 @@ export function AgentVrmDiagnosis({
       hasChecked.current = true;
     }
   }, []);
+
+  // Set diagnosis is passed flag
+  useEffect(() => {
+    const isPassed = (
+      Object.keys(results) as (keyof DiagnosisResultType)[]
+    )
+      .filter((key): key is CheckKey => key !== "overall")
+      .every((key) => results[key].status === "pass");
+
+    setDiagnosisIsPassed(isPassed);
+  }, [results]);
+
 
   return (
     <div className="w-full p-6 border border-gray-200 rounded-3xl bg-white shadow-xl flex flex-col justify-between">
