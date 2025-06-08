@@ -20,6 +20,7 @@ import { id } from 'ethers';
 
 import type { CharacterData, VrmState } from '@/pages/share';
 import { CheckBoxGroup } from './checkBoxGroup';
+import { saveNFT } from '@/utils/agentUtils';
 
 registerPlugin(
     FilePondPluginImagePreview,
@@ -371,6 +372,8 @@ export default function MintingComponent({
                 functionName: 'mint',
                 args: ["Amica NFT", "AINFT", keysList, valuesList],
             });
+
+            await saveNFT(keysList, valuesList);
 
         } catch (error) {
             console.error("Minting failed:", error);
