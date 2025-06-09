@@ -1,5 +1,6 @@
 import { ChatbotBackend } from "@/types/backend";
 import { EvaluationResult } from "./diagnosisScript";
+import { getOpenAiChatResponseStream } from "../chat/openAiChat";
 
 const additionalUrls = {
   openai: "/v1/chat/completions",
@@ -17,9 +18,13 @@ const TIME_OUT = 20000; // time out 10 secs
 const MIN_DURATION = 5000; // latest time to add the score
 
 // Utility to safely call fetch with a timeout
-async function safeFetch(fullUrl: string, options: RequestInit, timeoutMs = TIME_OUT): Promise<EvaluationResult> {
+async function safeFetch(
+  fullUrl: string,
+  options: RequestInit,
+  timeoutMs = TIME_OUT,
+): Promise<EvaluationResult> {
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const start = performance.now();
 
   try {
@@ -28,25 +33,26 @@ async function safeFetch(fullUrl: string, options: RequestInit, timeoutMs = TIME
       signal: controller.signal,
     });
 
-    const end = performance.now();
-    clearTimeout(id);
-    const duration = end - start;
+    clearTimeout(timeoutId);
+    const duration = performance.now() - start;
 
-    const status = res.ok ? "pass" : "fail";
+    const status = res.status >= 200 && res.status < 300 ? "pass" : "fail";
     const score = calculateScore({ status, duration });
-
-    return { status, score };
-  } catch (err: any) {
-    const end = performance.now();
-    clearTimeout(id);
-    const duration = end - start;
-
-    const isAbort = err.name === "AbortError";
-    const status = isAbort ? "fail" : "fail";
 
     return {
       status,
-      score: calculateScore({ status, duration, timeout: isAbort }),
+      score,
+    };
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    const duration = performance.now() - start;
+
+    const isTimeout = err.name === "AbortError";
+    const status = "fail";
+
+    return {
+      status,
+      score: calculateScore({ status, duration, timeout: isTimeout }),
     };
   }
 }
@@ -64,7 +70,8 @@ function calculateScore({
   if (timeout) return 0;
   let score = 0;
   if (status === "pass") score += 50;
-  if (duration < MIN_DURATION) score += 50 * ((MIN_DURATION - duration) / MIN_DURATION); 
+  if (duration < MIN_DURATION)
+    score += 50 * ((MIN_DURATION - duration) / MIN_DURATION);
   return Math.round(score);
 }
 
@@ -75,16 +82,17 @@ const backendHandlers: Record<
 > = {
   openai: async (params) => {
     const { openai_apikey, openai_model, openai_url } = params.openai || {};
-    if (!openai_apikey || !openai_url || !openai_model) return {status: "fail", score: 0};
+    if (!openai_apikey || !openai_url || !openai_model)
+      return { status: "fail", score: 0 };
 
     return await safeFetch(`${openai_url}${additionalUrls.openai}`, {
-      method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${openai_apikey}`,
         "HTTP-Referer": "https://amica.arbius.ai",
         "X-Title": "Amica",
       },
+      method: "POST",
       body: JSON.stringify({
         model: openai_model,
         messages: prompt,
@@ -96,7 +104,7 @@ const backendHandlers: Record<
 
   llamacpp: async (params) => {
     const { llamacpp_url } = params.llamacpp || {};
-    if (!llamacpp_url) return {status: "fail", score: 0};
+    if (!llamacpp_url) return { status: "fail", score: 0 };
 
     return await safeFetch(`${llamacpp_url}${additionalUrls.llamacpp}`, {
       method: "POST",
@@ -117,7 +125,7 @@ const backendHandlers: Record<
 
   ollama: async (params) => {
     const { ollama_url, ollama_model } = params.ollama || {};
-    if (!ollama_url) return {status: "fail", score: 0};
+    if (!ollama_url) return { status: "fail", score: 0 };
 
     return await safeFetch(`${ollama_url}${additionalUrls.ollama}`, {
       method: "POST",
@@ -128,9 +136,12 @@ const backendHandlers: Record<
 
   koboldai: async (params) => {
     const { koboldai_url, koboldai_use_extra } = params.koboldai || {};
-    if (!koboldai_url) return {status: "fail", score: 0};
+    if (!koboldai_url) return { status: "fail", score: 0 };
 
-    const path = koboldai_use_extra === "true" ? additionalUrls.kobolda_extra : additionalUrls.koboldai;
+    const path =
+      koboldai_use_extra === "true"
+        ? additionalUrls.kobolda_extra
+        : additionalUrls.koboldai;
 
     return await safeFetch(`${koboldai_url}${path}`, {
       method: "POST",
@@ -140,8 +151,10 @@ const backendHandlers: Record<
   },
 
   openrouter: async (params) => {
-    const { openrouter_apikey, openrouter_model, openrouter_url } = params.openrouter || {};
-    if (!openrouter_apikey || !openrouter_model || !openrouter_url) return {status: "fail", score: 0};
+    const { openrouter_apikey, openrouter_model, openrouter_url } =
+      params.openrouter || {};
+    if (!openrouter_apikey || !openrouter_model || !openrouter_url)
+      return { status: "fail", score: 0 };
 
     return await safeFetch(`${openrouter_url}${additionalUrls.openrouter}`, {
       method: "POST",
@@ -159,15 +172,17 @@ const backendHandlers: Record<
     });
   },
 
-  windowai: async () => { return { status: "pass", score: 100 }},
+  windowai: async () => {
+    return { status: "pass", score: 100 };
+  },
 };
 
 // Dispatcher function
 export async function chatbotDiagnosis(
   backend: string,
-  params: ChatbotBackend
+  params: ChatbotBackend,
 ): Promise<EvaluationResult> {
   const handler = backendHandlers[backend];
-  if (!handler) return {status: "fail", score: 0};
+  if (!handler) return { status: "fail", score: 0 };
   return await handler(params);
 }

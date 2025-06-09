@@ -13,11 +13,11 @@ export async function saveNFT(keysList: string[], valuesList: string[]) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_PSV_SUPABASE_URL as string,
-    process.env.NEXT_PUBLIC_PSV_SUPABASE_ANON_KEY as string
+    process.env.NEXT_PUBLIC_PSV_SUPABASE_ANON_KEY as string,
   );
 
   const config: Config = Object.fromEntries(
-    keysList.map((key, i) => [key, valuesList[i]])
+    keysList.map((key, i) => [key, valuesList[i]]),
   );
 
   const agentConfig: AgentConfig = {
@@ -41,9 +41,14 @@ export async function saveNFT(keysList: string[], valuesList: string[]) {
 async function saveToAgent(
   supabase: SupabaseClient,
   config: Config,
-  agentConfig: AgentConfig
+  agentConfig: AgentConfig,
 ) {
-  const integrations: Record<string, string> = ["brain", "virtuals", "eacc", "uos"]
+  const integrations: Record<string, string> = [
+    "brain",
+    "virtuals",
+    "eacc",
+    "uos",
+  ]
     .filter((key) => config[key])
     .reduce((acc, key) => ({ ...acc, [key]: config[key] }), {});
 
@@ -56,7 +61,7 @@ async function saveToAgent(
     avatar: config.image,
     token: "AINFT",
     category: config.agent_category || "All Agents",
-    tags: config.tags,
+    tags: config.tags?.split(",") ?? [],
     vrmUrl: config.vrm_url,
     bgUrl: config.bg_url,
     config: agentConfig,
@@ -75,19 +80,19 @@ async function saveToAgent(
 async function saveToAgentBackend(
   supabase: SupabaseClient,
   config: Config,
-  agentConfig: AgentConfig
+  agentConfig: AgentConfig,
 ) {
   const backendData: Record<string, Record<string, string>> = {};
 
   for (const backendType in agentConfig) {
     const backendName = agentConfig[backendType];
     const mappedKeys = backendKeyMap[backendName];
+    backendData[backendType] = {};
     if (mappedKeys?.length) {
-      backendData[backendType] = {};
       for (const key of mappedKeys) {
         if (config[key]) {
           backendData[backendType][key] = config[key];
-        }
+        } 
       }
     }
   }

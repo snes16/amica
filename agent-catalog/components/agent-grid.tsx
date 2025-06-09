@@ -12,7 +12,7 @@ import Link from "next/link"
 
 interface AgentGridProps {
   agents: Agent[]
-  onUpdateAgent: (agent: Agent) => void 
+  onUpdateAgent?: (agent: Agent) => void 
 }
 
 const categories = [
