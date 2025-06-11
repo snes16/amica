@@ -18,6 +18,7 @@ export async function askLLM(
   systemPrompt: string,
   userPrompt: string,
   chat: Chat | null,
+  onChatCompleteResolver?: () => void
 ): Promise<string> {
   let streams = [];
   let readers = [];
@@ -160,7 +161,20 @@ export async function askLLM(
           break;
         }
       }
-
+    }
+    // Wait for TTS jobs to complete
+    if (onChatCompleteResolver && chat) {
+      const waitForTTS = () =>
+        new Promise<void>((resolve) => {
+          const interval = setInterval(() => {
+            if (chat.speakJobs.size() === 0 && chat.ttsJobs.size() === 0) {
+              clearInterval(interval);
+              resolve();
+            }
+          }, 100);
+        });
+      await waitForTTS();
+      onChatCompleteResolver();
     }
   } catch (e: any) {
     const errMsg = e.toString();

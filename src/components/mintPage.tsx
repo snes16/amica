@@ -289,14 +289,14 @@ export default function MintingComponent({
                     if (transferEvent && transferEvent.topics.length >= 3) {
                         handleTokenId(transferEvent.topics[3]!);
                     } else if (aid != undefined) {
-                        setAgentId(encodeAgentId(Number(aid) + 1));
+                        setAgentId(encodeAgentId(Number(aid)));
                         saveNFT(mintParams?.keysList!, mintParams?.valuesList!)
                     }
                 }
             } catch (e) {
                 console.error("Error parsing receipt:", e);
                 if (aid !== undefined) {
-                    setAgentId(encodeAgentId(Number(aid) + 1));
+                    setAgentId(encodeAgentId(Number(aid)));
                     saveNFT(mintParams?.keysList!, mintParams?.valuesList!)
                 }
             }

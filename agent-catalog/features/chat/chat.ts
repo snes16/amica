@@ -832,8 +832,8 @@ export class Chat {
     }
   }
 
-  public stopProcessing() {
-    console.log("Stopping all background processes...");
+  public clean() {
+    console.log("Stopping all chat processes...");
     this.shouldStopProcessing = true;
 
     // Cancel any readers or streams if needed
@@ -842,5 +842,6 @@ export class Chat {
     // You could also optionally clear queues
     this.ttsJobs.clear();
     this.speakJobs.clear();
+    this.initialized = false;
   }
 }

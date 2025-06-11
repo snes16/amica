@@ -134,9 +134,10 @@ export async function handleSubconsciousEvent(
   config: ChatConfig,
   chat: Chat,
   amicaLife: AmicaLife,
+  onChatCompleteResolver?: () => void,
 ) {
   // removed for staging logs.
-  //console.log("Handling idle event:", "Subconscious");
+  // console.log("Handling idle event:", "Subconscious");
 
   const convo = chat.messageList;
   const convoLog = convo
@@ -183,6 +184,7 @@ export async function handleSubconsciousEvent(
         .join(", ")}:`,
       thirdStepPrompt,
       chat,
+      onChatCompleteResolver
     );
 
     // Removed for staging logs.
@@ -260,12 +262,18 @@ export async function handleIdleEvent(
     return;
   }
 
+  let onChatCompleteResolver: (() => void) | undefined;
+  const onChatComplete = new Promise<void>((resolve) => {
+    onChatCompleteResolver = resolve;
+  });
+
   switch (event.events) {
     case "VRMA":
       await handleVRMAnimationEvent(viewer, amicaLife);
       break;
     case "Subconcious":
-      await handleSubconsciousEvent(config, chat, amicaLife);
+      await handleSubconsciousEvent(config, chat, amicaLife, onChatCompleteResolver!);
+      await onChatComplete;
       break;
     case "News":
       await handleNewsEvent(chat, amicaLife);

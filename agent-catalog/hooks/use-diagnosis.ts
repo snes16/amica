@@ -38,7 +38,7 @@ const initialResults: DiagnosisResultType = {
 /**
  * Main runner hook
  */
-export const useDiagnosisRunner = (agent: Agent, index: number) => {
+export const useDiagnosisRunner = (agent: Agent, index: number, cache_off?: boolean) => {
   const queryClient = useQueryClient();
   const [checking, setChecking] = useState(false);
   const checkingRef = useRef(checking);
@@ -56,7 +56,7 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
     data: dynamicResults = initialResults,
     isStale,
     refetch,
-  } = useDiagnosisQuery(diagnosisQueryKey, agent);
+  } = useDiagnosisQuery(diagnosisQueryKey, agent, !cache_off);
 
   const handleDiagnosis = useCallback(
     async (useCache: boolean = true) => {
@@ -165,7 +165,7 @@ export function extractScoresAndOverall(result: DiagnosisResultType) {
 /**
  * Custom query hook to manage diagnosis cache
  */
-function useDiagnosisQuery(queryKey: any[], agent: Agent) {
+function useDiagnosisQuery(queryKey: any[], agent: Agent, enabled: boolean) {
   return useQuery<DiagnosisResultType>({
     queryKey,
     queryFn: async () => {
@@ -187,6 +187,7 @@ function useDiagnosisQuery(queryKey: any[], agent: Agent) {
       return tempResults;
     },
     staleTime: CACHE_TTL,
+    enabled,
   });
 }
 

@@ -73,7 +73,7 @@ export function LeaderboardHeader() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            Agent Leaderboard
+            Leaderboard
             <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-neon-blue text-sm font-noto opacity-75">
               アミカエージェント
             </span>

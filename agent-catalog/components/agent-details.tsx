@@ -107,6 +107,17 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
   return (
     <div className="min-h-screen bg-white text-gray-800">
       <div className="container mx-auto px-4 py-12">
+        <div className="absolute top-4 left-4 z-30">
+          <Button
+            variant="ghost"
+            className="text-gray-900 hover:text-gray-500 font-orbitron font-bold text-xl"
+            onClick={() => window.location.href = "/"} // Replace with your actual route
+          >
+            <ArrowRightLeft className="mr-2 h-4 w-4" />
+            Back to Village
+          </Button>
+        </div>
+
         <h1 className="text-5xl font-orbitron font-bold text-gray-900 mb-2 text-center">
           {agent.name}
         </h1>

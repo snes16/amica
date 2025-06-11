@@ -212,6 +212,16 @@ export function AgentDemo({ agent, talentShow, setTalentShow, talentRunning, set
     }
   }, [transcriber.output, whisperCppOutput, whisperOpenAIOutput]);
 
+  useEffect(() => {
+    return () => {
+      console.log("AgentDemo is unmounting : ",agent.agentId);
+      bot.clean();
+      viewer.unloadVRM();
+      amicaLife.clean();
+    };
+  }, []);
+
+
   return (
     <div
       className="bg-gray-100 p-8 rounded-lg h-[400px] flex items-center justify-center border border-gray-200 relative"
@@ -222,18 +232,18 @@ export function AgentDemo({ agent, talentShow, setTalentShow, talentRunning, set
       }}
     >
       {/* Talent Show Progress Bar */}
-      { (talentShow && talentRunning) && (
+      {(talentShow && talentRunning) && (
         <div className="absolute right-4 top-4 z-20 w-32 text-white text-2xl">
-        <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-500 ease-out"
-            style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-          ></div>
+          <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-500 ease-out"
+              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+            ></div>
+          </div>
+          <p className="mt-2 text-center text-sm font-semibold text-white">{stepLabels[currentStep]}</p>
         </div>
-        <p className="mt-2 text-center text-sm font-semibold text-white">{stepLabels[currentStep]}</p>
-      </div>
       )}
-      
+
       <VRMDemo
         vrmUrl={agent.vrmUrl}
         onLoaded={() => { }}
@@ -246,3 +256,4 @@ export function AgentDemo({ agent, talentShow, setTalentShow, talentRunning, set
     </div>
   );
 }
+
