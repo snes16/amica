@@ -40,7 +40,7 @@ export function AgentTiers({ currentTier }: AgentTiersProps) {
               <span className="font-roboto-mono text-gray-600 text-sm">{currentTier.name}</span>
               <span className="font-roboto-mono text-gray-500 text-sm">Level {currentTier.level}</span>
             </div>
-            <Progress value={progress} className="h-2 bg-gray-200 bg-blue-500" />
+            <Progress value={progress} className="h-2 bg-gray-200" />
             <div className="flex justify-between mt-1">
               <span className="font-roboto-mono text-gray-500 text-xs">{currentTier.stakedAIUS} AIUS</span>
               {nextTier && (

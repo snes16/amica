@@ -4,6 +4,8 @@ import { GLTFLoader, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js
 import { VRMAnimation } from "@/lib/VRMAnimation/VRMAnimation";
 import { VRMLookAtSmootherLoaderPlugin } from "@/lib/VRMLookAtSmootherLoaderPlugin/VRMLookAtSmootherLoaderPlugin";
 import { EmoteController } from "@/features/emoteController/emoteController";
+import { LipSync } from "@/features/lipSync/lipSync";
+import { Screenplay } from "@/features/chat/messages";
 
 /**
  * 3Dキャラクターを管理するクラス
@@ -14,11 +16,13 @@ export class Model {
   public emoteController?: EmoteController;
 
   private _lookAtTargetParent: THREE.Object3D;
+  private _lipSync?: LipSync;
 
   public _currentAction?: THREE.AnimationAction;
 
   constructor(lookAtTargetParent: THREE.Object3D) {
     this._lookAtTargetParent = lookAtTargetParent;
+    this._lipSync = new LipSync(new AudioContext());
   }
 
   public async loadVRM(url: string): Promise<void> {
@@ -187,7 +191,24 @@ export class Model {
     this.emoteController?.playEmotion(expression);
   }
 
+  /**
+   * 音声を再生し、リップシンクを行う
+   */
+  public async speak(buffer: ArrayBuffer, screenplay: Screenplay) {
+    this.emoteController?.playEmotion(screenplay.expression);
+    await new Promise((resolve) => {
+      this._lipSync?.playFromArrayBuffer(buffer, () => {
+        resolve(true);
+      });
+    });
+  }
+
   public update(delta: number): void {
+    if (this._lipSync) {
+      const { volume } = this._lipSync.update();
+      this.emoteController?.lipSync("aa", volume);
+    }
+
     this.emoteController?.update(delta);
     this.mixer?.update(delta);
     this.vrm?.update(delta);

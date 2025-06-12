@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   checks,
@@ -10,7 +10,7 @@ import {
 } from "@/components/diagnosis-result";
 import { diagnosisScript } from "@/features/diagnosed/diagnosisScript";
 import { vrmDiagnosis } from "@/features/diagnosed/vrmDiagnosis";
-import { extractKeyNames, fetchBackend } from "@/hooks/use-backend";
+import { fetchBackends } from "@/lib/backends";
 import type { Agent } from "@/types/agent";
 import { CACHE_TTL } from "@/lib/query-client";
 import { supabase } from "@/utils/supabase";
@@ -38,25 +38,33 @@ const initialResults: DiagnosisResultType = {
 /**
  * Main runner hook
  */
-export const useDiagnosisRunner = (agent: Agent, index: number) => {
+export const useDiagnosisRunner = (agent: Agent, index: number, cache_off?: boolean) => {
   const queryClient = useQueryClient();
   const [checking, setChecking] = useState(false);
+  const checkingRef = useRef(checking);
+
+  useEffect(() => {
+    checkingRef.current = checking;
+  }, [checking]);
+
   const [status, setStatus] = useState<string | null>(null);
   const [results, setResults] = useState<DiagnosisResultType>(initialResults);
 
   const diagnosisQueryKey = ["diagnosis", agent.agentId];
-  const agentQueryKey = ["agents", agent.agentId];
 
   const {
     data: dynamicResults = initialResults,
     isStale,
     refetch,
-  } = useDiagnosisQuery(diagnosisQueryKey, agent);
+  } = useDiagnosisQuery(diagnosisQueryKey, agent, !cache_off);
 
   const handleDiagnosis = useCallback(
     async (useCache: boolean = true) => {
       // Prevent concurrent runs
-      if (checking) return;
+      if (checkingRef.current === true) {
+        console.log("Already checking, aborting.");
+        return;
+      }
 
       setChecking(true);
 
@@ -68,8 +76,7 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
       }
 
       try {
-        const { keysList, keysMap } = extractKeyNames(agent.config);
-        const fullConfig = await fetchBackend(agent.agentId,keysList, keysMap);
+        const fullConfig = await fetchBackends(agent.agentId, agent.config);
 
         const tempResults: DiagnosisResultType = { ...initialResults };
 
@@ -97,16 +104,13 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
 
         const talentScore =
           calculateTalentShowScore(tempResults).toPrecision(4);
-         tempResults["overall"] = talentScore;
+        tempResults["overall"] = talentScore;
         update("overall", talentScore);
 
         setStatus(newStatus);
 
         queryClient.setQueryData(diagnosisQueryKey, tempResults);
 
-        const agentUpdateCache = {
-          status: newStatus,
-        };
         const scoreUpdateCache = {
           ...extractScoresAndOverall(tempResults),
           talentShowScore: talentScore,
@@ -128,20 +132,6 @@ export const useDiagnosisRunner = (agent: Agent, index: number) => {
         if (backendUpsertError) {
           console.error("Failed to upsert agent-score:", backendUpsertError);
         }
-
-        queryClient.setQueryData(agentQueryKey, (prev: Agent | undefined) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            ...agentUpdateCache,
-            talentShowScore: talentScore,
-          };
-        });
-
-        // refresh agent data cache
-        queryClient.invalidateQueries({ queryKey: agentQueryKey });
-        queryClient.refetchQueries({queryKey: agentQueryKey});
-
       } catch (err) {
         console.error("Diagnosis process failed:", err);
       } finally {
@@ -175,12 +165,11 @@ export function extractScoresAndOverall(result: DiagnosisResultType) {
 /**
  * Custom query hook to manage diagnosis cache
  */
-function useDiagnosisQuery(queryKey: any[], agent: Agent) {
+function useDiagnosisQuery(queryKey: any[], agent: Agent, enabled: boolean) {
   return useQuery<DiagnosisResultType>({
     queryKey,
     queryFn: async () => {
-      const { keysList,keysMap } = extractKeyNames(agent.config);
-      const fullConfig = await fetchBackend(agent.agentId, keysList,keysMap);
+      const fullConfig = await fetchBackends(agent.agentId, agent.config);
       const tempResults: DiagnosisResultType = { ...initialResults };
 
       await runDiagnosisCheck(
@@ -198,6 +187,7 @@ function useDiagnosisQuery(queryKey: any[], agent: Agent) {
       return tempResults;
     },
     staleTime: CACHE_TTL,
+    enabled,
   });
 }
 

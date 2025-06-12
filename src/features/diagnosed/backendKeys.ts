@@ -7,7 +7,7 @@ export const backendKeyMap: Record<string, string[]> = {
     openrouter: ["openrouter_apikey", "openrouter_url", "openrouter_model"],
   
     elvenlabs: ["elevenlabs_apikey", "elevenlabs_voiceid", "elvenlabs_model"],
-    speecht5: ["speaker_embedding_url"],
+    speecht5: ["speecht5_speaker_embedding_url"],
     openai_tts: ["openai_tts_apikey", "openai_tts_url", "openai_tts_model", "openai_tts_voice"],
     localXTTS: [
       "localXTTS_url", "alltalk_version", "alltalk_voice",
@@ -24,6 +24,7 @@ export const backendKeyMap: Record<string, string[]> = {
     vision_openai: ["vision_openai_apikey", "vision_openai_url", "vision_openai_model"],
     vision_ollama: ["vision_ollama_url", "vision_ollama_model"],
 
-    amicaLife : ["amica_life_enabled", "min_time_interval_sec", "max_time_interval_sec", "time_to_sleep_sec", "idle_text_prompt"]
+    amicaLife : ["amica_life_enabled", "min_time_interval_sec", "max_time_interval_sec", "time_to_sleep_sec", "idle_text_prompt"],
+    rvc: ["rvc_enabled","rvc_url","rvc_model_name","rvc_f0_upkey","rvc_f0_method","rvc_index_path","rvc_index_rate","rvc_filter_radius","rvc_resample_sr","rvc_rms_mix_rate","rvc_protect",]
   };
   

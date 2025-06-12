@@ -9,26 +9,20 @@ import Image from "next/image"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useDiagnosisRunner } from "@/hooks/use-diagnosis"
-import { useEffect, useRef, useState } from "react"
+import { cn } from "@/lib/utils"
+import { useState } from "react"
 
 interface AgentCardProps {
   agent: Agent
+  onUpdateAgent?: (agent: Agent) => void
   index: number
 }
 
 const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 
-export function AgentCard({ agent, index }: AgentCardProps) {
-  const { status, checking, handleDiagnosis } = useDiagnosisRunner(agent, index);
-  const hasChecked = useRef(false);
-
-  // Check agent status on mount
-  useEffect(() => {
-    if (!hasChecked.current) {
-      handleDiagnosis();
-      hasChecked.current = true;
-    }
-  }, []);
+export function AgentCard({ agent, onUpdateAgent, index }: AgentCardProps) {
+  const { status, checking, handleDiagnosis } = useDiagnosisRunner(agent, index, true);
+  const [diagnosed, setDiagnosed] = useState(false);
 
   return (
     <motion.div
@@ -60,9 +54,24 @@ export function AgentCard({ agent, index }: AgentCardProps) {
                 <span className="text-sm font-medium text-neon-pink font-orbitron">{agent.price?.toPrecision(2)} AIUS</span>
                 <Badge
                   variant="secondary"
-                  className="bg-neon-blue border-0 text-white font-roboto-mono hover:bg-neon-blue"
+                  onClick={() => {
+                    if (!checking) {
+                      setDiagnosed(true);
+                      handleDiagnosis(false);
+                    }
+                  }}
+                  loading={checking}
+                  className={cn(
+                    "bg-neon-blue border-0 text-white font-roboto-mono",
+                    "transition-all duration-300 ease-in-out",
+                    "hover:bg-neon-blue/90 hover:shadow-[0_0_10px_rgba(0,245,255,0.6)] hover:scale-[1.03]",
+                    "active:scale-[0.98]",
+                    "focus-visible:ring-2 focus-visible:ring-neon-blue/50"
+                  )}
+                  role="button"
+                  tabIndex={0}
                 >
-                  {checking ? "loading" : status || agent.status}
+                  {checking ? "loading.." : diagnosed ? status : agent.status}
                 </Badge>
               </div>
             </div>
@@ -85,8 +94,12 @@ export function AgentCard({ agent, index }: AgentCardProps) {
               size="sm"
               className="w-full font-roboto-mono border-neon-blue/50 text-neon-blue hover:bg-neon-blue/20 hover:text-white transition-colors"
               onClick={() => window.open(`${AMICA_URL}/agent/${agent.id}`, "_blank", "noopener,noreferrer")}
-              disabled={status !== "active"}
-              title={status !== "active" ? "Chat is disabled: Agent is inactive." : ""}
+              disabled={diagnosed ? status !== "active" : agent.status !== "active"}
+              title={
+                (diagnosed ? status !== "active" : agent.status !== "active")
+                  ? "Chat is disabled: Agent is inactive."
+                  : ""
+              }
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               Chat

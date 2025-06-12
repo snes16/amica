@@ -6,8 +6,7 @@ import {
 } from "@pixiv/three-vrm";
 import { AutoLookAt } from "./autoLookAt";
 import { AutoBlink } from "./autoBlink";
-
-const emotionNames: string[] = [];
+import { emotionNames } from "@/features/chat/messages";
 
 /**
  * Expressionを管理するクラス

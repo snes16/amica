@@ -26,7 +26,9 @@ async function safeFetch(
 
   try {
     if (!options) {
-        const res = await fetch(fullUrl);
+        const res = await fetch(fullUrl, {
+          signal: controller.signal,
+        });
         const end = performance.now();
         clearTimeout(id);
         const duration = end - start;
@@ -35,7 +37,10 @@ async function safeFetch(
 
         return { status, score };
     } else {
-        const res = await fetch(fullUrl, options);
+        const res = await fetch(fullUrl, {
+          ...options,
+          signal: controller.signal, 
+        });
         const end = performance.now();
         clearTimeout(id);
         const duration = end - start;
@@ -76,9 +81,9 @@ const backendHandlers: Record<
   (params: TTSBackend) => Promise<EvaluationResult>
 > = {
   elevenlabs: async (params) => {
-    const { elevenlabs_apikey, elevenlabs_voiceid, elvenlabs_model } = params.elvenlabs || {};
+    const { elevenlabs_apikey, elevenlabs_voiceid, elevenlabs_model } = params.elevenlabs || {};
 
-    if (!elevenlabs_apikey || !elevenlabs_voiceid || !elvenlabs_model) return {status: "fail", score: 0};
+    if (!elevenlabs_apikey || !elevenlabs_voiceid || !elevenlabs_model) return {status: "fail", score: 0};
     const url = `https://api.elevenlabs.io/v1/text-to-speech/${elevenlabs_voiceid}`;
 
     return await safeFetch(`${url}${additionalUrls.elevenlabs}`, {
@@ -90,7 +95,7 @@ const backendHandlers: Record<
       },
       body: JSON.stringify({
         text: message,
-        model_id: elvenlabs_model,
+        model_id: elevenlabs_model,
         voice_settings: {
           stability: 0,
           similarity_boost: 0,

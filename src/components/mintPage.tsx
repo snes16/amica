@@ -20,6 +20,7 @@ import { id } from 'ethers';
 
 import type { CharacterData, VrmState } from '@/pages/share';
 import { CheckBoxGroup } from './checkBoxGroup';
+import { saveNFT } from '@/utils/agentUtils';
 
 registerPlugin(
     FilePondPluginImagePreview,
@@ -105,6 +106,8 @@ export default function MintingComponent({
         uos: { enabled: false, url: '' },
     });
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+    const [mintParams, setMintParams] = useState<{ keysList: string[], valuesList: any[] } | null>(null);
 
     const isValidUrl = (url: string) => {
         try {
@@ -258,6 +261,8 @@ export default function MintingComponent({
             const tokenId = parseInt(tokenIdHex, 16);
             const shortId = encodeAgentId(tokenId);
             setAgentId(shortId);
+
+            saveNFT(mintParams?.keysList!, mintParams?.valuesList!);
         };
 
         if (receipt) {
@@ -283,13 +288,17 @@ export default function MintingComponent({
 
                     if (transferEvent && transferEvent.topics.length >= 3) {
                         handleTokenId(transferEvent.topics[3]!);
-                    } else {
-                        aid != undefined ? setAgentId(encodeAgentId(Number(aid))) : null;
+                    } else if (aid != undefined) {
+                        setAgentId(encodeAgentId(Number(aid)));
+                        saveNFT(mintParams?.keysList!, mintParams?.valuesList!)
                     }
                 }
             } catch (e) {
                 console.error("Error parsing receipt:", e);
-                aid != undefined ? setAgentId(encodeAgentId(Number(aid))) : null;
+                if (aid !== undefined) {
+                    setAgentId(encodeAgentId(Number(aid)));
+                    saveNFT(mintParams?.keysList!, mintParams?.valuesList!)
+                }
             }
         }
     }, [receipt, aid]);
@@ -308,19 +317,24 @@ export default function MintingComponent({
 
     // Mint character function
     async function mintCharacter() {
+        if (!mintData.thumbUrl) {
+            alert(`VRM thumbnail is required`);
+            return;
+        }
+
+        // Validate enabled integrations have URLs
+        for (const [key, { enabled, url }] of Object.entries(integrations)) {
+            if (enabled && !url) {
+                alert(`Please enter a URL for ${key}`);
+                return;
+            }
+        }
+
         setIsMinting(true);
         setTxStatus('pending');
         setTxError(null);
 
         try {
-            // Validate enabled integrations have URLs
-            for (const [key, { enabled, url }] of Object.entries(integrations)) {
-                if (enabled && !url) {
-                    alert(`Please enter a URL for ${key}`);
-                    return;
-                }
-            }
-
             // Filter and prepare config-based defaults
             const filteredDefaults = Object.fromEntries(
                 Object.entries(defaults)
@@ -357,12 +371,14 @@ export default function MintingComponent({
             const integrationValues = Object.values(selectedIntegrations);
 
             const keysList = [...configKeys, ...lateAssignKeys, ...integrationKeys, "agent_id"];
-            const valuesList = [...configValues, ...lateAssignValues, ...integrationValues, agentId];
+            const valuesList = [...configValues, ...lateAssignValues, ...integrationValues, encodeAgentId(Number(aid) + 1)];
 
             // Validate inputs before calling the contract
             if (keysList.length !== valuesList.length) {
                 throw new Error("Mismatch between keys and values.");
             }
+
+            setMintParams({ keysList, valuesList });
 
             // Call smart contract
             writeContract({
