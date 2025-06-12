@@ -2,16 +2,16 @@ import { Metadata } from "next";
 import { Agent } from "@/types/agent";
 import AgentClient from "./AgentClient";
 import { QueryProvider } from "../../ClientQueryProvider";
-import { getAgentsFromSupabase } from "@/lib/agents";
+import { getAgentFromContract } from "@/lib/agents";
 
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const id = params.id
-  const agentResult = await getAgentsFromSupabase(id);
+  const agentResult = await getAgentFromContract(id);
 
   const agent = (agentResult && !Array.isArray(agentResult)) ? agentResult as Agent : null;
 
-  const title = agent?.name ?? "Agent Profivle";
+  const title = agent?.name ?? "Agent Profile";
   const description = agent?.description ?? "Meet our intelligent agent.";
   const image = agent?.avatar ?? "/default-agent-image.png";
   const url = `${process.env.NEXT_PUBLIC_PRODUCTION_URL}/agent/${params.id}`;
