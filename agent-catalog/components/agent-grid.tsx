@@ -1,18 +1,18 @@
 "use client"
 
 import type { Agent } from "@/types/agent"
-import { AgentCard } from "./agent-card"
+import { AgentCard, AgentCardHandle } from "./agent-card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Brain, Code, Microscope, Users, Shield, TrendingUp, Bitcoin, Briefcase, ClipboardList } from "lucide-react"
+import { Brain, Code, Microscope, Users, Shield, TrendingUp, Bitcoin, Briefcase, ClipboardList, RefreshCcw } from "lucide-react"
 import { motion } from "framer-motion"
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import Link from "next/link"
 
 interface AgentGridProps {
   agents: Agent[]
-  onUpdateAgent?: (agent: Agent) => void 
+  onUpdateAgent?: (agent: Agent) => void
 }
 
 const categories = [
@@ -30,6 +30,48 @@ export function AgentGrid({ agents, onUpdateAgent }: AgentGridProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [sortOption, setSortOption] = useState("all")
   const [selectedCategory, setSelectedCategory] = useState("all")
+
+  const [diagnosisRunning, setDiagnosisRunning] = useState(false)
+  const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const cardRefs = useRef<(AgentCardHandle | null)[]>([])
+
+  const handleCancel = () => {
+    if (abortController) {
+      abortController.abort()
+      setAbortController(null)
+    }
+  }
+
+  const handleRunAllDiagnoses = async () => {
+    if (!diagnosisRunning) {
+      const controller = new AbortController()
+      setAbortController(controller)
+      setDiagnosisRunning(true)
+
+      for (let i = 0; i < cardRefs.current.length; i++) {
+        if (controller.signal.aborted) {
+          break
+        }
+
+        const ref = cardRefs.current[i]
+        if (ref && typeof ref.runDiagnosis === "function") {
+          try {
+            await ref.runDiagnosis(controller.signal)
+          } catch (error) {
+            if ((error as Error).name === "AbortError") {
+              break
+            }
+            console.error(`Error in agent diagnosis:`, error)
+          }
+        }
+      }
+
+      setDiagnosisRunning(false)
+      setAbortController(null)
+    }
+  }
+
+
 
   // Filter agents based on category, search query and sort
   const filteredAgents = useMemo(() => {
@@ -101,7 +143,7 @@ export function AgentGrid({ agents, onUpdateAgent }: AgentGridProps) {
           </div>
         </div>
 
-       {/* Categories */}
+        {/* Categories */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
           {categories.map((category, index) => {
             const Icon = category.icon
@@ -116,9 +158,8 @@ export function AgentGrid({ agents, onUpdateAgent }: AgentGridProps) {
                 <Button
                   onClick={() => setSelectedCategory(category.key)}
                   variant="outline"
-                  className={`h-auto py-4 w-full flex flex-col gap-2 transition-colors ${
-                    isSelected ? "bg-blue-100 border-blue-500" : "hover:bg-blue-50"
-                  }`}
+                  className={`h-auto py-4 w-full flex flex-col gap-2 transition-colors ${isSelected ? "bg-blue-100 border-blue-500" : "hover:bg-blue-50"
+                    }`}
                 >
                   <Icon className="h-6 w-6 text-blue-500" />
                   <span className="text-sm">{category.name}</span>
@@ -131,10 +172,45 @@ export function AgentGrid({ agents, onUpdateAgent }: AgentGridProps) {
         {/* Featured Agents Section */}
         <div>
           <h2 className="text-2xl font-semibold mb-6 text-blue-900">Personas</h2>
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <Button
+              variant="outline"
+              size="sm"
+              className={`w-full sm:w-[180px] border-gray-200 text-black ${diagnosisRunning ? 'hover:bg-neon-pink/50' : 'hover:bg-neon-blue/50'} hover:text-white transition-colors`}
+              onClick={diagnosisRunning ? handleCancel : handleRunAllDiagnoses}
+              disabled={false}
+            >
+              {diagnosisRunning ? (
+                <>
+                  <svg
+                    className={`animate-spin h-4 w-4 mr-2 text-current`}
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    />
+                  </svg>
+                  Cancel
+                </>
+              ) : (
+                <>
+                  <RefreshCcw className="h-4 w-4 mr-2" />
+                  Sync Personas
+                </>
+              )}
+            </Button>
+          </div>
+
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredAgents.length > 0 ? (
               filteredAgents.map((agent, index) => (
-                <AgentCard key={agent.id} agent={agent} onUpdateAgent={onUpdateAgent} index={index} />
+                <AgentCard key={agent.id} agent={agent} onUpdateAgent={onUpdateAgent} index={index} ref={(el) => { cardRefs.current[index] = el; }} />
               ))
             ) : searchQuery.length > 0 && filteredAgents.length < 1 ? (
               <motion.p
@@ -148,7 +224,7 @@ export function AgentGrid({ agents, onUpdateAgent }: AgentGridProps) {
 
             ) : (
               agents.map((agent, index) => (
-                <AgentCard key={agent.agentId} agent={agent} onUpdateAgent={onUpdateAgent} index={index} />
+                <AgentCard key={agent.agentId} agent={agent} onUpdateAgent={onUpdateAgent} index={index} ref={(el) => { cardRefs.current[index] = el; }} />
               ))
             )}
 

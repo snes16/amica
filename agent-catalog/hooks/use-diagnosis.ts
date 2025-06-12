@@ -38,7 +38,11 @@ const initialResults: DiagnosisResultType = {
 /**
  * Main runner hook
  */
-export const useDiagnosisRunner = (agent: Agent, index: number, cache_off?: boolean) => {
+export const useDiagnosisRunner = (
+  agent: Agent,
+  index: number,
+  cache_off?: boolean,
+) => {
   const queryClient = useQueryClient();
   const [checking, setChecking] = useState(false);
   const checkingRef = useRef(checking);
@@ -212,7 +216,11 @@ export async function runDiagnosisCheck(
 
         update(key, metric);
       } catch (err) {
-        console.error(`Error during ${key} check:`, err);
+        if ((err as DOMException).name === "AbortError") {
+          console.warn(`Check for ${key} aborted`);
+        } else {
+          console.error(`Error during ${key} check:`, err);
+        }
         update(key, { status: "fail", score: 0 });
       }
     }),
