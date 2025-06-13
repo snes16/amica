@@ -11,6 +11,7 @@ import Link from "next/link"
 import { useDiagnosisRunner } from "@/hooks/use-diagnosis"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
+import { forwardRef, useImperativeHandle } from "react";
 
 interface AgentCardProps {
   agent: Agent
@@ -18,11 +19,38 @@ interface AgentCardProps {
   index: number
 }
 
+export interface AgentCardHandle {
+  runDiagnosis: (signal: AbortSignal) => Promise<void>;
+}
+
 const AMICA_URL = process.env.NEXT_PUBLIC_AMICA_URL as string;
 
-export function AgentCard({ agent, onUpdateAgent, index }: AgentCardProps) {
+export const AgentCard = forwardRef<AgentCardHandle, AgentCardProps>(({ agent, onUpdateAgent, index }, ref) => {
   const { status, checking, handleDiagnosis } = useDiagnosisRunner(agent, index, true);
   const [diagnosed, setDiagnosed] = useState(false);
+
+const runDiagnosis = async (signal: AbortSignal): Promise<void> => {
+  return new Promise<void>(async (resolve, reject) => {
+    if (signal.aborted) {
+      return reject(new DOMException("Aborted", "AbortError"));
+    }
+
+    signal.addEventListener("abort", () => {
+      console.log("Diagnosis aborted");
+      reject(new DOMException("Aborted", "AbortError"));
+    });
+
+    setDiagnosed(true);
+    await handleDiagnosis(false);
+    resolve();
+
+  });
+};
+
+
+useImperativeHandle(ref, () => ({
+  runDiagnosis,
+}));
 
   return (
     <motion.div
@@ -54,12 +82,6 @@ export function AgentCard({ agent, onUpdateAgent, index }: AgentCardProps) {
                 <span className="text-sm font-medium text-neon-pink font-orbitron">{agent.price?.toPrecision(2)} AIUS</span>
                 <Badge
                   variant="secondary"
-                  onClick={() => {
-                    if (!checking) {
-                      setDiagnosed(true);
-                      handleDiagnosis(false);
-                    }
-                  }}
                   loading={checking}
                   className={cn(
                     "bg-neon-blue border-0 text-white font-roboto-mono",
@@ -68,7 +90,6 @@ export function AgentCard({ agent, onUpdateAgent, index }: AgentCardProps) {
                     "active:scale-[0.98]",
                     "focus-visible:ring-2 focus-visible:ring-neon-blue/50"
                   )}
-                  role="button"
                   tabIndex={0}
                 >
                   {checking ? "loading.." : diagnosed ? status : agent.status}
@@ -120,4 +141,5 @@ export function AgentCard({ agent, onUpdateAgent, index }: AgentCardProps) {
     </motion.div>
   )
 }
-
+)
+AgentCard.displayName = "AgentCard"
