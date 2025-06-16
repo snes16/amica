@@ -11,7 +11,28 @@ import {
 import { decodeAgentId } from "@/utils/fileUtils";
 
 export async function getAgentsFromSupabase(agentId?: string | null) {
-  let query = supabase.from("agents").select("*");
+  const agentFields = [
+    "id",
+    "agentId",
+    "name",
+    "token",
+    "description",
+    "status",
+    "avatar",
+    "category",
+    "tags",
+    "vrmUrl",
+    "bgUrl",
+    "config",
+    "integrations",
+    "systemPrompt",
+    "visionSystemPrompt",
+  ].join(",");
+
+  let query = supabase
+    .from("agents")
+    .select(agentFields)
+    .neq("blackList", true);
 
   if (agentId) {
     query = query.eq("agentId", agentId);
@@ -107,7 +128,11 @@ export async function getAgentFromContract(
     ethcallContract.getMetadata(tokenId, METADATA_KEYS),
   ]);
 
-  if (!Array.isArray(metadata) || metadata.length === 0 || metadata[0] === "0x") {
+  if (
+    !Array.isArray(metadata) ||
+    metadata.length === 0 ||
+    metadata[0] === "0x"
+  ) {
     console.warn(`No metadata found for tokenId: ${tokenId}`);
     return null;
   }
