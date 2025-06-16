@@ -9,7 +9,7 @@ import Link from "next/link";
 
 import { Header, LeaderboardHeader } from "@/components/header";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { fetchAgentPriceAndTiers } from "@/lib/agents";
+import { fetchAgentStats } from "@/lib/agents";
 
 type Score = {
     agentId: string;
@@ -187,7 +187,7 @@ export default function LeaderboardPage() {
                 const res = await fetch("/api/agents");
                 if (!res.ok) throw new Error("Failed to fetch agents. ");
                 const data = await res.json();
-                const agents = await fetchAgentPriceAndTiers(data);
+                const agents = await fetchAgentStats(data);
                 if (isMounted) {
                     setAgents(Array.isArray(agents) ? agents : [agents]);
                 }
