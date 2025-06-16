@@ -1,3 +1,7 @@
+import { handleConfig } from "@/features/externalAPI/externalAPI";
+import { readStore } from "@/features/externalAPI/memoryStore";
+import { isAgentRoute } from "./agentUtils";
+
 export const defaults = {
   // AllTalk TTS specific settings
   localXTTS_url: process.env.NEXT_PUBLIC_LOCALXTTS_URL ?? 'http://127.0.0.1:7851',
@@ -75,6 +79,14 @@ export const defaults = {
   speecht5_speaker_embedding_url: process.env.NEXT_PUBLIC_SPEECHT5_SPEAKER_EMBEDDING_URL ?? '/speecht5_speaker_embeddings/cmu_us_slt_arctic-wav-arctic_a0001.bin',
   coqui_apikey: process.env.NEXT_PUBLIC_COQUI_APIKEY ?? "",
   coqui_voice_id: process.env.NEXT_PUBLIC_COQUI_VOICEID ?? "71c6c3eb-98ca-4a05-8d6b-f8c2b5f9f3a3",
+  external_api_enabled: process.env.NEXT_PUBLIC_EXTERNAL_API_ENABLED ?? 'false',
+  jwt_outdated: '',
+  x_api_key: process.env.NEXT_PUBLIC_X_API_KEY ?? '',
+  x_api_secret: process.env.NEXT_PUBLIC_X_API_SECRET ?? '',
+  x_access_token: process.env.NEXT_PUBLIC_X_ACCESS_TOKEN ?? '',
+  x_access_secret: process.env.NEXT_PUBLIC_X_ACCESS_SECRET ?? '',
+  x_bearer_token: process.env.NEXT_PUBLIC_X_BEARER_TOKEN ?? '',
+  telegram_bot_token: process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN ?? '',
   amica_life_enabled: process.env.NEXT_PUBLIC_AMICA_LIFE_ENABLED ?? 'true',
   min_time_interval_sec: '10',
   max_time_interval_sec: '20',
@@ -101,35 +113,29 @@ Here are some examples to guide your responses:
 Remember, each message you provide should be coherent and reflect the complexity of your thoughts combined with your emotional unpredictability. Let’s engage in a conversation that's as intellectually stimulating as it is emotionally dynamic!`,
 };
 
-let agentCacheStorage: Record<string, string> = {};
-
-function prefixed(key: string) {
+export function prefixed(key: string) {
   return `chatvrm_${key}`;
 }
 
-// Detect if the URL is of the form /agent/{id}
-export function isAgentRoute(): boolean {
-  const path = window.location.pathname;
-  const agentRoutePattern = /^\/agent\/.*$/; 
-  return agentRoutePattern.test(path);
-}
-
-
-export function syncAgentConfig(data: Record<string, string>) {
-  Object.entries(data).forEach(([key, value]) => {
-    agentCacheStorage[key] = value as string ?? ''; 
-  });
-}
+if (typeof window !== "undefined") {
+  (async () => {
+    if (!isAgentRoute()) {
+      const token = await handleConfig("init");
+      localStorage.setItem(prefixed("jwt_token"), token!);
+      localStorage.setItem(prefixed("jwt_outdated"), 'false');
+    }
+  })();
+} 
 
 export function config(key: string): string {
-  if (isAgentRoute()) {
-    if (agentCacheStorage.hasOwnProperty(key)) {
-      return agentCacheStorage[key];
-    }
+  if (typeof localStorage !== "undefined" && localStorage.hasOwnProperty(prefixed(key))) {
+    return (<any>localStorage).getItem(prefixed(key))!;
   }
 
-  if (localStorage.hasOwnProperty(prefixed(key))) {
-    return (<any>localStorage).getItem(prefixed(key));
+  // Fallback to serverConfig if localStorage is unavailable or missing
+  const serverConfig = readStore("config");
+  if (serverConfig && serverConfig.hasOwnProperty(key)) {
+    return serverConfig[key];
   }
 
   if (defaults.hasOwnProperty(key)) {
@@ -139,13 +145,21 @@ export function config(key: string): string {
   throw new Error(`config key not found: ${key}`);
 }
 
-export function updateConfig(key: string, value: string) {
-  if (defaults.hasOwnProperty(key)) {
-    localStorage.setItem(prefixed(key), value);
-    return;
-  }
+export async function updateConfig(key: string, value: string) {
+  try {
+    const localKey = prefixed(key);
 
-  throw new Error(`config key not found: ${key}`);
+    // Update localStorage if available
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(localKey, value);
+    }
+
+    // Sync update to server config
+    await handleConfig("update",{ key, value });
+
+  } catch (e) {
+    console.error(`Config "${key}" not found: ${e}`);
+  }
 }
 
 export function defaultConfig(key: string): string {

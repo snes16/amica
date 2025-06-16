@@ -9,11 +9,22 @@ if (typeof window !== "undefined") {
         }
 
         function logf() {
-          window.error_handler_logs.push({
+          const logEntry = {
             type: name,
-            ts: +new Date,
+            ts: +new Date(),
             arguments,
-          });
+          };
+          window.error_handler_logs.push(logEntry);
+
+          const logsUrl = '/api/dataHandler?type=logs';
+          const apiEnabled = localStorage.getItem("chatvrm_external_api_enabled");
+          if (apiEnabled === "true") {
+            fetch(logsUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(logEntry),
+            });
+          }
           passf.apply(null, arguments);
         }
 

@@ -6,7 +6,7 @@ import { useVrmStoreContext } from "@/features/vrmStore/vrmStoreContext";
 import isTauri from "@/utils/isTauri";
 import { invoke } from "@tauri-apps/api/tauri";
 import { ChatContext } from "@/features/chat/chatContext";
-import { isAgentRoute } from "@/utils/config";
+import { isAgentRoute } from "@/utils/agentUtils";
 import clsx from "clsx";
 
 

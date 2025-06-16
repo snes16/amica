@@ -5,6 +5,13 @@ import { backendKeyMap } from "@/features/diagnosed/backendKeys";
 type AgentConfig = Record<string, string>;
 type Config = Record<string, string>;
 
+// Detect if the URL is of the form /agent/{id}
+export function isAgentRoute(): boolean {
+  const path = window.location.pathname;
+  const agentRoutePattern = /^\/agent\/.*$/; 
+  return agentRoutePattern.test(path);
+}
+
 export async function saveNFT(keysList: string[], valuesList: string[]) {
   if (keysList.length !== valuesList.length) {
     console.error("Keys and values lists must have the same length");

@@ -20,12 +20,14 @@ import { localXTTSTTS} from "@/features/localXTTS/localXTTS";
 
 import { AmicaLife } from '@/features/amicaLife/amicaLife';
 
-import { config } from "@/utils/config";
+import { config, updateConfig } from "@/utils/config";
 import { cleanTalk } from "@/utils/cleanTalk";
 import { processResponse } from "@/utils/processResponse";
 import { wait } from "@/utils/wait";
 import { isCharacterIdle, characterIdleTime, resetIdleTimer } from "@/utils/isIdle";
 import { getOpenRouterChatResponseStream } from './openRouterChat';
+import { loadVRMAnimation } from '@/lib/VRMAnimation/loadVRMAnimation';
+import { handleUserInput } from '../externalAPI/externalAPI';
 
 
 type Speak = {
@@ -76,6 +78,8 @@ export class Chat {
 
   public currentStreamIdx: number;
 
+  private eventSource: EventSource | null = null
+
   constructor() {
     this.initialized = false;
 
@@ -123,6 +127,8 @@ export class Chat {
 
     this.updateAwake();
     this.initialized = true;
+
+    this.initSSE();
   }
 
   public setMessageList(messages: Message[]) {
@@ -334,6 +340,8 @@ export class Chat {
     if (!amicaLife) {
       console.log('receiveMessageFromUser', message);
 
+      await handleUserInput(message);
+
       this.amicaLife?.receiveMessageFromUser(message);
 
       if (!/\[.*?\]/.test(message)) {
@@ -353,6 +361,108 @@ export class Chat {
     // console.debug('messages', messages);
 
     await this.makeAndHandleStream(messages);
+  }
+
+  public initSSE() {
+    if (config("external_api_enabled") !== "true") {
+      return;
+    }  
+    // Close existing SSE connection if it exists
+    this.closeSSE();
+
+    this.eventSource = new EventSource('/api/amicaHandler');
+
+    // Listen for incoming messages from the server
+    this.eventSource.onmessage = async (event) => {
+      try {
+        // Parse the incoming JSON message
+        const message = JSON.parse(event.data);
+
+        console.log(message);
+
+        // Destructure to get the message type and data
+        const { type, data } = message;
+
+        // Handle the message based on its type
+        switch (type) {
+          case 'normal':
+            console.log('Normal message received:', data);
+            const messages: Message[] = [
+              { role: "system", content: config("system_prompt") },
+              ...this.messageList!,
+              { role: "user", content: data},
+            ];
+            let stream = await getEchoChatResponseStream(messages);
+            this.streams.push(stream);
+            this.handleChatResponseStream();
+            break;
+          
+          case 'animation':
+            console.log('Animation data received:', data);
+            const animation = await loadVRMAnimation(`/animations/${data}`);
+            if (!animation) {
+              throw new Error("Loading animation failed");
+            }
+            this.viewer?.model?.playAnimation(animation,data);
+            requestAnimationFrame(() => { this.viewer?.resetCameraLerp(); });
+            break;
+
+          case 'playback':
+            console.log('Playback flag received:', data);
+            this.viewer?.startRecording();
+            // Automatically stop recording after 10 seconds
+            setTimeout(() => {
+              this.viewer?.stopRecording((videoBlob) => {
+                // Log video blob to console
+                console.log("Video recording finished", videoBlob);
+
+                // Create a download link for the video file
+                const url = URL.createObjectURL(videoBlob!);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "recording.webm"; // Set the file name for download
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+                // Revoke the URL to free up memory
+                URL.revokeObjectURL(url);
+              });
+            }, data); // Stop recording after 10 seconds
+            break;
+
+          case 'systemPrompt':
+            console.log('System Prompt data received:', data);
+            updateConfig("system_prompt",data);
+            break;
+
+          default:
+            console.warn('Unknown message type:', type);
+        }
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
+      }
+    };
+
+
+    this.eventSource.addEventListener('end', () => {
+      console.log('SSE session ended');
+      this.eventSource?.close();
+    });
+
+    this.eventSource.onerror = (error) => {
+      console.error('Error in SSE connection:', error);
+      this.eventSource?.close();
+      setTimeout(this.initSSE, 500);
+    };
+  }
+
+  public closeSSE() {
+    if (this.eventSource) {
+        console.log("Closing existing SSE connection...");
+        this.eventSource.close();
+        this.eventSource = null;
+    }
   }
 
 

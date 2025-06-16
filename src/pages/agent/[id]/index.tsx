@@ -45,7 +45,7 @@ import { Message, Role } from "@/features/chat/messages";
 import { ChatContext } from "@/features/chat/chatContext";
 import { AlertContext } from "@/features/alert/alertContext";
 
-import { config, defaults, syncAgentConfig, updateConfig } from '@/utils/config';
+import { config, defaults, updateConfig } from '@/utils/config';
 import { isTauri } from '@/utils/isTauri';
 import { langs } from '@/i18n/langs';
 import { VrmStoreProvider } from "@/features/vrmStore/vrmStoreContext";
@@ -60,6 +60,7 @@ import { Contract, JsonRpcProvider } from 'ethers';
 import { abi } from "@/utils/abi";
 import { decodeAgentId, encodeAgentId } from "@/utils/fileUtils";
 import { DiagnosisScript } from "@/components/diagnosisScript";
+import { handleConfig } from "@/features/externalAPI/externalAPI";
 
 const m_plus_2 = M_PLUS_2({
   variable: "--font-m-plus-2",
@@ -201,7 +202,7 @@ export default function Agent() {
         }
 
         // Sync agent configuration
-        syncAgentConfig(configs);
+        handleConfig("agent_route",configs);
 
         // Set loaded state after all is done
         setLoaded(true);
