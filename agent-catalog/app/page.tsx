@@ -8,7 +8,7 @@ import dynamic from "next/dynamic";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Agent } from "@/types/agent";
 import { useEffect, useState } from "react";
-import { fetchAgentPriceAndTiers } from "@/lib/agents";
+import { fetchAgentStats } from "@/lib/agents";
 
 // 👇 Dynamically import the provider to avoid server-side import trace
 const ClientQueryProvider = dynamic(() => import("./ClientQueryProvider").then(mod => mod.QueryProvider), {
@@ -43,7 +43,7 @@ function HomeContent() {
         const res = await fetch("/api/agents");
         if (!res.ok) throw new Error("Failed to fetch agents. ");
         const data = await res.json();
-        const agents = await fetchAgentPriceAndTiers(data);
+        const agents = await fetchAgentStats(data);
         if (isMounted) {
           setAgents(Array.isArray(agents) ? agents : [agents]);
         }

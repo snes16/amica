@@ -1,9 +1,26 @@
+import { getExplorerUrl } from "@/lib/agents"
 import { Button } from "./ui/button"
 import { Twitter, Facebook, Linkedin, Github } from "lucide-react"
+import { Agent } from "@/types/agent"
 
-export function SocialMediaButtons() {
+interface SocialMediaProps {
+  agent: Agent;
+}
+
+export function SocialMediaButtons({agent}: SocialMediaProps) {
   return (
     <div className="flex space-x-4">
+      {agent.erc20 && (
+        <Button
+          variant="outline"
+          className="border-blue-700 text-blue-700 hover:bg-blue-100 hover:text-blue-900"
+          onClick={() =>
+            window.open(getExplorerUrl(agent.erc20!), "_blank", "noopener,noreferrer")
+          }
+        >
+          View on Explorer
+        </Button>
+      )}
       <Button
         variant="outline"
         size="icon"

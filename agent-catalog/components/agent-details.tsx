@@ -252,7 +252,7 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
               )}
             </div>
             <AgentDescription description={agent.description} />
-            <SocialMediaButtons />
+            <SocialMediaButtons agent={agent} />
             {agent.tags.length > 1 &&
               <AgentTags tags={agent.tags} />}
             <AgentTiers currentTier={agent.tier!} />

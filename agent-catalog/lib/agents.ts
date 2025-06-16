@@ -22,7 +22,7 @@ export async function getAgentsFromSupabase(agentId?: string | null) {
 }
 
 // Fetch and enrich agents with price and tier info
-export async function fetchAgentPriceAndTiers(
+export async function fetchAgentStats(
   agents: Agent | Agent[],
 ): Promise<Agent | Agent[]> {
   const agentArray = Array.isArray(agents) ? agents : [agents];
@@ -38,9 +38,20 @@ export async function fetchAgentPriceAndTiers(
     const tokenId = Number(agent.id);
     let price = 0;
     let stakedAius = 0;
+    let erc20: `0x${string}` = '0x';
     let tier: AgentTier = { name: "None", level: 0, stakedAIUS: 0 };
 
     try {
+      // Get erc20 ca
+      const tokenURI = await contract.tokenURI(tokenId);
+      const base64 = tokenURI.replace(/^data:application\/json;base64,/, "");
+      const jsonStr = Buffer.from(base64, "base64").toString("utf-8");
+      const metadata = JSON.parse(jsonStr);
+      const erc20Attr = metadata.attributes?.find(
+        (attr: any) => attr.trait_type === "ERC20 Address"
+      );
+      erc20 = erc20Attr.value;
+
       const tokenData = await contract.getTokenData(tokenId);
       [stakedAius, price] = await calculatePrice(
         contract,
@@ -68,7 +79,7 @@ export async function fetchAgentPriceAndTiers(
       }
     }
 
-    updatedAgents.push({ ...agent, price, tier });
+    updatedAgents.push({ ...agent, price, tier, erc20 });
   }
 
   // Return a single Agent if the input was a single Agent
@@ -167,3 +178,23 @@ export async function getAgentFromContract(
   };
   return agent;
 }
+
+type SupportedNetworks =
+  | "mainnet"
+  | "sepolia"
+  | "arbitrum"
+  | "arbitrumSepolia";
+
+export function getExplorerUrl(address: `0x${string}`, network: SupportedNetworks = "sepolia"): string {
+  const explorerBaseMap: Record<SupportedNetworks, string> = {
+    mainnet: "https://etherscan.io",
+    sepolia: "https://sepolia.etherscan.io",
+    arbitrum: "https://arbiscan.io",
+    arbitrumSepolia: "https://sepolia.arbiscan.io",
+  };
+
+  const base = explorerBaseMap[network];
+  return `${base}/address/${address}`;
+}
+
+

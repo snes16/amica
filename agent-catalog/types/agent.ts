@@ -32,6 +32,7 @@ export interface Agent {
     eacc?: string
     uos?: string
   },
+  erc20?: `0x${string}`
   talentShowScore?: string
   systemPrompt: string
   visionSystemPrompt: string

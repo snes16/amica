@@ -3,7 +3,7 @@
 import { AgentDetails } from "@/components/agent-details";
 import { Agent } from "@/types/agent";
 import { useEffect, useState } from "react";
-import { fetchAgentPriceAndTiers } from "@/lib/agents";
+import { fetchAgentStats } from "@/lib/agents";
 
 export default function AgentClient({ id }: { id: string }) {
   const [agents, setAgents] = useState<Agent>();
@@ -20,7 +20,7 @@ export default function AgentClient({ id }: { id: string }) {
         const res = await fetch(`/api/agents?agentId=${id}`);
         if (!res.ok) throw new Error(`Failed to fetch agent ${id}`);
         const data = await res.json();
-        const agentsResult = await fetchAgentPriceAndTiers(data);
+        const agentsResult = await fetchAgentStats(data);
         if (isMounted) {
           setAgents(Array.isArray(agentsResult) ? agentsResult[0] : agentsResult);
         }
