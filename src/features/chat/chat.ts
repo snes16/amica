@@ -28,6 +28,7 @@ import { isCharacterIdle, characterIdleTime, resetIdleTimer } from "@/utils/isId
 import { getOpenRouterChatResponseStream } from './openRouterChat';
 import { loadVRMAnimation } from '@/lib/VRMAnimation/loadVRMAnimation';
 import { handleUserInput } from '../externalAPI/externalAPI';
+import { isAgentRoute } from '@/utils/agentUtils';
 
 
 type Speak = {
@@ -128,7 +129,7 @@ export class Chat {
     this.updateAwake();
     this.initialized = true;
 
-    this.initSSE();
+    if (!isAgentRoute()) this.initSSE();
   }
 
   public setMessageList(messages: Message[]) {
@@ -365,6 +366,7 @@ export class Chat {
 
   public initSSE() {
     if (config("external_api_enabled") !== "true") {
+      console.log("External API Disabled")
       return;
     }  
     // Close existing SSE connection if it exists

@@ -23,6 +23,10 @@ import {
   WrenchScrewdriverIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
+  ClipboardDocumentCheckIcon,
+  ClipboardIcon,
+  CheckCircleIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { IconBrain } from '@tabler/icons-react';
 
@@ -85,6 +89,9 @@ export default function Agent() {
   const { chat: bot } = useContext(ChatContext);
   const { amicaLife: amicaLife } = useContext(AmicaLifeContext);
 
+  const [jwtToken, setJwtToken] = useState("");
+  const [copied, setCopied] = useState(false);
+
   const [chatSpeaking, setChatSpeaking] = useState(false);
   const [chatProcessing, setChatProcessing] = useState(false);
   const [chatLog, setChatLog] = useState<Message[]>([]);
@@ -97,6 +104,7 @@ export default function Agent() {
   // otherwise issues from usage of localStorage and window will occur
   const [showContent, setShowContent] = useState(false);
 
+  const [showNotification, setShowNotification] = useState(false);
   const [showChatLog, setShowChatLog] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [showChatMode, setShowChatMode] = useState(false);
@@ -107,7 +115,6 @@ export default function Agent() {
   // null indicates havent loaded config yet
   const [muted, setMuted] = useState<boolean | null>(null);
   const [webcamEnabled, setWebcamEnabled] = useState(false);
-
 
   const router = useRouter()
   const [error, setError] = useState(false);
@@ -162,10 +169,7 @@ export default function Agent() {
 
   useEffect(() => {
     async function processCharacterData() {
-      if (isNaN(tokenId) || !agentData) {
-        setError(true);
-        return;
-      }
+      if (!agentData || loaded) return;
 
       console.log("Process agent data")
 
@@ -195,14 +199,17 @@ export default function Agent() {
           document.body.style.backgroundColor = configs.bg_color;
         } else if (configs.bg_url) {
           document.body.style.backgroundImage = `url(${configs.bg_url})`;
-        } 
+        }
         if (configs.brain) {
           setShowBrain(true);
           setBrainLink(configs.brain);
         }
 
         // Sync agent configuration
-        handleConfig("agent_route",configs);
+        const jwtToken = await handleConfig("agent_route", configs);
+        setJwtToken(jwtToken ?? "");
+
+        bot.initSSE();
 
         // Set loaded state after all is done
         setLoaded(true);
@@ -214,7 +221,7 @@ export default function Agent() {
 
     processCharacterData();
 
-  }, [agentData, tokenId, keysList, loaded]);
+  }, [agentData, loaded]);
 
   function toggleTTSMute() {
     updateConfig('tts_muted', config('tts_muted') === 'true' ? 'false' : 'true')
@@ -240,6 +247,15 @@ export default function Agent() {
   const toggleDiagnosis = () => {
     toggleState(setShowDiagnosis, [setShowChatLog, setShowChatMode]);
   };
+
+  function handleCopyJWT() {
+    navigator.clipboard.writeText(jwtToken).then(() => {
+      setCopied(true);
+      setShowNotification(true);
+      setTimeout(() => { setCopied(false); setShowNotification(false); }, 4000);
+    });
+  }
+
 
   useEffect(() => {
     bot.initialize(
@@ -304,6 +320,52 @@ export default function Agent() {
       </VrmStoreProvider>
 
       <MessageInputContainer isChatProcessing={chatProcessing} />
+
+      {/* Notification Alert */}
+      <div
+        aria-live="assertive"
+        className="pointer-events-none fixed inset-0 flex items-end px-4 py-6 sm:items-start sm:p-6 mt-2"
+      >
+        <div className="flex w-full flex-col items-center space-y-4 sm:items-end">
+
+          <Transition
+            show={showNotification}
+            as={Fragment}
+            enter="transform ease-out duration-300 transition"
+            enterFrom="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+            enterTo="translate-y-0 opacity-100 sm:translate-x-0"
+            leave="transition ease-in duration-100"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+              <div className="p-4">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <CheckCircleIcon className="h-6 w-6 text-green-400" aria-hidden="true" />
+                  </div>
+                  <div className="ml-3 w-0 flex-1 pt-0.5">
+                    <p className="text-sm font-medium text-gray-900">JWT Copied!</p>
+                    <p className="mt-1 text-sm text-gray-500">Your JWT were copied successfully.</p>
+                  </div>
+                  <div className="ml-4 flex flex-shrink-0">
+                    <button
+                      type="button"
+                      className="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                      onClick={() => {
+                        setShowNotification(false)
+                      }}
+                    >
+                      <span className="sr-only">Close</span>
+                      <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </div>
 
       {/* main menu */}
       <div className="absolute z-10 m-2">
@@ -390,6 +452,25 @@ export default function Agent() {
               )}
               <span className="text-white hidden">Diagnosis Script</span>
             </div>
+
+            {config("external_api_enabled") === 'true' && jwtToken && (
+              <div className="flex flex-row items-center space-x-2">
+                {copied ? (
+                  <ClipboardDocumentCheckIcon
+                    className="h-7 w-7 text-green-400 opacity-100 hover:opacity-100 active:opacity-100"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <ClipboardIcon
+                    className="h-7 w-7 text-white opacity-50 hover:opacity-100 active:opacity-100 hover:cursor-pointer"
+                    aria-hidden="true"
+                    onClick={handleCopyJWT}
+                  />
+                )}
+                <span className="text-white hidden">Copy JWT Token</span>
+              </div>
+            )}
+
 
           </div>
         </div>

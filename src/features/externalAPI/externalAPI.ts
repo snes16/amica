@@ -4,6 +4,7 @@ import {
   TimestampedPrompt,
 } from "../amicaLife/eventHandler";
 import { Message } from "../chat/messages";
+import { writeStore } from "./memoryStore";
 
 export const issueJWT = `/api/jwt`;
 export const configUrl = `/api/dataHandler?type=config`;
@@ -75,6 +76,10 @@ export async function handleConfig(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ config: data }),
       });
+
+      if (data) {
+        writeStore("config", data);
+      }
 
       let agentRouteToken: string = "";
       if (agentRouteResponse.ok) {

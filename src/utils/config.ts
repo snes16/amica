@@ -128,8 +128,14 @@ if (typeof window !== "undefined") {
 } 
 
 export function config(key: string): string {
-  if (typeof localStorage !== "undefined" && localStorage.hasOwnProperty(prefixed(key))) {
-    return (<any>localStorage).getItem(prefixed(key))!;
+  if (typeof localStorage !== "undefined") {
+    if (isAgentRoute()) {
+      const agentConfig = readStore("config");
+      return agentConfig[key];
+    }
+    if (localStorage.hasOwnProperty(prefixed(key))) {
+      return (<any>localStorage).getItem(prefixed(key))!;
+    }
   }
 
   // Fallback to serverConfig if localStorage is unavailable or missing
