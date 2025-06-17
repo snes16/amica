@@ -2,6 +2,7 @@ import {
   Fragment,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import Link from "next/link";
@@ -118,6 +119,7 @@ export default function Agent() {
 
   const router = useRouter()
   const [error, setError] = useState(false);
+  const hasProcessedRef = useRef(false);
   const [loaded, setLoaded] = useState(false);
 
   const provider = new JsonRpcProvider(process.env.NEXT_PUBLIC_INFURA_RPC);
@@ -169,8 +171,9 @@ export default function Agent() {
 
   useEffect(() => {
     async function processCharacterData() {
-      if (!agentData || loaded) return;
+      if (!agentData || loaded || hasProcessedRef.current) return;
 
+      hasProcessedRef.current = true; // lock future calls
       console.log("Process agent data")
 
 
