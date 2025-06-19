@@ -205,7 +205,8 @@ export async function handleSubconsciousEvent(
 
     if (config("external_api_enabled") === "true") {
       try {
-        await handleSubconscious(timestampedPrompt);
+        const sessionId = config("session_id");
+        await handleSubconscious(sessionId, timestampedPrompt);
       } catch (error) {
         console.error("Error handling external API:", error);
       }
