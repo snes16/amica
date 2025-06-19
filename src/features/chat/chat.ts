@@ -376,9 +376,10 @@ export class Chat {
         this.eventSource = null;
     }
 
+    const sessionId = config('session_id');
     const match = window.location.pathname.match(/^\/agent\/([^/]+)/);
     const extra = isAgentRoute() && match ? `/agent/${match[1]}` : ``;
-    this.eventSource = new EventSource(`/api${extra}/amicaHandler`);
+    this.eventSource = new EventSource(`/api${extra}/amicaHandler?sessionId=${sessionId}`);
 
     // Listen for incoming messages from the server
     this.eventSource.onmessage = async (event) => {

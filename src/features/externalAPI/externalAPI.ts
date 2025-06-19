@@ -5,6 +5,7 @@ import {
 } from "../amicaLife/eventHandler";
 import { Message } from "../chat/messages";
 import { writeStore } from "./memoryStore";
+import { generateSessionId } from "./utils/apiHelper";
 
 export const issueJWT = `/api/jwt`;
 export const configUrl = `/api/dataHandler?type=config`;
@@ -35,6 +36,7 @@ export async function fetcher(method: string, url: URL | string, data?: any) {
 export async function handleConfig(
   type: string,
   data?: Record<string, string>,
+  sessionId?: string,
 ) {
   switch (type) {
     // Call this function at the beginning of your application to load the server config and sync to localStorage if needed.
@@ -54,6 +56,8 @@ export async function handleConfig(
       }
 
       // Sync update to server config
+      const id = generateSessionId();
+      localStorage.setItem(prefixed("session_id"), id);
       const response = await fetch(issueJWT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -78,7 +82,7 @@ export async function handleConfig(
       });
 
       if (data) {
-        writeStore("config", data);
+        writeStore(sessionId!, "config", data);
       }
 
       let agentRouteToken: string = "";
@@ -105,7 +109,7 @@ export async function handleUserInput(message: string) {
     return;
   }
 
-  fetch(userInputUrl, {
+  fetch(`${userInputUrl}&sessionId=${config('session_id')}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -120,7 +124,7 @@ export async function handleChatLogs(messages: Message[]) {
     return;
   }
 
-  fetch(chatLogsUrl, {
+  fetch(`${chatLogsUrl}&sessionId=${config('session_id')}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(messages),
@@ -128,13 +132,14 @@ export async function handleChatLogs(messages: Message[]) {
 }
 
 export async function handleSubconscious(
+  sessionId: string,
   timestampedPrompt: TimestampedPrompt,
 ) {
   if (config("external_api_enabled") !== "true") {
     return;
   }
 
-  const response = await fetch(subconsciousUrl, {
+  const response = await fetch(`${subconsciousUrl}&sessionId=${sessionId}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

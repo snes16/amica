@@ -1,6 +1,5 @@
 import { randomBytes } from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
-import { isAgentRoute } from "@/utils/agentUtils";
 
 export interface ApiResponse {
   sessionId?: string;
@@ -28,14 +27,25 @@ export const sendError = (
   status = 400,
 ) => res.status(status).json({ sessionId, error: message });
 
-export const sendToClients = async (req: NextApiRequest, message: { type: string; data: any }) => {
+export const sendToClients = async (sessionId: string, req: NextApiRequest, message: { type: string; data: any }) => {
   const isAgentRoute = req.url?.startsWith('/api/agent/') ?? false;
   const handlerModule = isAgentRoute
       ? await import('@/pages/api/agent/[id]/amicaHandler')
       : await import('@/pages/api/amicaHandler');
-  const sseClients = handlerModule.sseClients;
-  
-    
+  const sseClients = handlerModule.sseClients as Record<string, { res: NextApiResponse }[]>;
   const formattedMessage = JSON.stringify(message);
-  sseClients.forEach((client) => client.res.write(`data: ${formattedMessage}\n\n`));
+
+  const sessionClients = sseClients[sessionId];
+  if (!sessionClients || sessionClients.length === 0) {
+    console.warn(`No SSE clients found for session: ${sessionId}`);
+    return;
+  }
+
+  sessionClients.forEach((client) => {
+    try {
+      client.res.write(`data: ${formattedMessage}\n\n`);
+    } catch (err) {
+      console.error("Failed to write SSE message:", err);
+    }
+  });
 };

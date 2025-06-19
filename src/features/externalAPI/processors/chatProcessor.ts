@@ -9,6 +9,7 @@ export const processNormalChat = async (message: string): Promise<string> => {
 };
 
 export const triggerAmicaActions = async (
+  sessionId: string,
   req: NextApiRequest,
   payload: any,
 ) => {
@@ -20,6 +21,7 @@ export const triggerAmicaActions = async (
         ? await askLLM(config("system_prompt"), text, null)
         : text;
       socialRes = await handleSocialMediaActions(
+        sessionId,
         req,
         message,
         socialMedia,
@@ -27,11 +29,11 @@ export const triggerAmicaActions = async (
     }
 
     if (playback) {
-      sendToClients(req, { type: "playback", data: 10000 });
+      sendToClients(sessionId, req, { type: "playback", data: 10000 });
     }
 
     if (animation) {
-      sendToClients(req, { type: "animation", data: animation });
+      sendToClients(sessionId, req, { type: "animation", data: animation });
     }
     return {
       success: true,
@@ -53,10 +55,11 @@ export const triggerAmicaActions = async (
 };
 
 export const updateSystemPrompt = async (
+  sessionId: string,
   req: NextApiRequest,
   payload: any,
 ): Promise<any> => {
   const { prompt } = payload;
-  let response = sendToClients(req, { type: "systemPrompt", data: prompt });
+  let response = sendToClients(sessionId, req, { type: "systemPrompt", data: prompt });
   return response;
 };

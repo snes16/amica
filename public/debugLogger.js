@@ -16,7 +16,8 @@ if (typeof window !== "undefined") {
           };
           window.error_handler_logs.push(logEntry);
 
-          const logsUrl = '/api/dataHandler?type=logs';
+          const sessionId = localStorage.getItem("chatvrm_session_id");
+          const logsUrl = '/api/dataHandler?type=logs&sessionId=' + sessionId;
           const apiEnabled = localStorage.getItem("chatvrm_external_api_enabled");
           if (apiEnabled === "true") {
             fetch(logsUrl, {

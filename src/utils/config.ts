@@ -1,6 +1,7 @@
 import { handleConfig } from "@/features/externalAPI/externalAPI";
 import { readStore } from "@/features/externalAPI/memoryStore";
 import { isAgentRoute } from "./agentUtils";
+import { getServerSessionId } from "@/features/externalAPI/serverContext";
 
 export const defaults = {
   // AllTalk TTS specific settings
@@ -80,6 +81,7 @@ export const defaults = {
   coqui_apikey: process.env.NEXT_PUBLIC_COQUI_APIKEY ?? "",
   coqui_voice_id: process.env.NEXT_PUBLIC_COQUI_VOICEID ?? "71c6c3eb-98ca-4a05-8d6b-f8c2b5f9f3a3",
   external_api_enabled: process.env.NEXT_PUBLIC_EXTERNAL_API_ENABLED ?? 'false',
+  session_id: '',
   jwt_outdated: '',
   x_api_key: process.env.NEXT_PUBLIC_X_API_KEY ?? '',
   x_api_secret: process.env.NEXT_PUBLIC_X_API_SECRET ?? '',
@@ -131,7 +133,8 @@ if (typeof window !== "undefined") {
 export function config(key: string): string {
   if (typeof localStorage !== "undefined") {
     if (isAgentRoute()) {
-      const agentConfig = readStore("config");
+      const sessionId = getServerSessionId();
+      const agentConfig = readStore(sessionId!, "config");
       return agentConfig[key];
     }
     if (localStorage.hasOwnProperty(prefixed(key))) {
@@ -140,7 +143,8 @@ export function config(key: string): string {
   }
 
   // Fallback to serverConfig if localStorage is unavailable or missing
-  const serverConfig = readStore("config");
+  const sessionId = getServerSessionId();
+  const serverConfig = readStore(sessionId!, "config");
   if (serverConfig && serverConfig.hasOwnProperty(key)) {
     return serverConfig[key];
   }

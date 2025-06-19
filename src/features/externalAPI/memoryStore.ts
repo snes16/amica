@@ -6,49 +6,77 @@ export type MemoryData = {
   chatLogs: any[];
 };
 
-const memoryStore: MemoryData = {
+const createEmptyMemory = (): MemoryData => ({
   config: {},
   subconscious: [],
   logs: [],
   userInputMessages: [],
   chatLogs: [],
-};
+});
 
-export function readStore<K extends keyof MemoryData>(key: K): MemoryData[K] {
-  return memoryStore[key];
+// Session-scoped memory store
+const memoryStore: Record<string, MemoryData> = {};
+
+/**
+ * Ensure a session has initialized memory.
+ */
+function ensureSessionMemory(sessionId: string): void {
+  if (!memoryStore[sessionId]) {
+    memoryStore[sessionId] = createEmptyMemory();
+  }
+}
+
+export function readStore<K extends keyof MemoryData>(
+  sessionId: string,
+  key: K
+): MemoryData[K] {
+  ensureSessionMemory(sessionId);
+  return memoryStore[sessionId][key];
 }
 
 export function writeStore<K extends keyof MemoryData>(
+  sessionId: string,
   key: K,
-  value: MemoryData[K],
+  value: MemoryData[K]
 ): void {
-  memoryStore[key] = value;
+  ensureSessionMemory(sessionId);
+  memoryStore[sessionId][key] = value;
 }
 
 export function updateStore<K extends keyof MemoryData>(
+  sessionId: string,
   key: K,
-  values: Partial<MemoryData[K]> | any,
+  values: Partial<MemoryData[K]> | any
 ): void {
-  const current = memoryStore[key];
+  ensureSessionMemory(sessionId);
+  const current = memoryStore[sessionId][key];
+
   if (Array.isArray(current)) {
-    memoryStore[key] = [...current, values];
+    memoryStore[sessionId][key] = [...current, values];
   } else if (
     typeof current === "object" &&
     typeof values === "object" &&
-    !Array.isArray(current)
+    !Array.isArray(values)
   ) {
     if (values.key && values.value !== undefined) {
-      const { key, value } = values;
-      if (!current.hasOwnProperty(key)) {
-        throw new Error(`Config key "${key}" not found.`);
+      const { key: configKey, value } = values;
+      if (!(configKey in current)) {
+        throw new Error(`Config key "${configKey}" not found.`);
       }
-      current[key] = value;
+      current[configKey] = value;
     } else {
-      for (const [key, value] of Object.entries(values)) {
-        current[key] = value;
+      for (const [propKey, propVal] of Object.entries(values)) {
+        (current as any)[propKey] = propVal;
       }
     }
   } else {
-    console.error("Update memory stroe: Invalid Type");
+    console.error("Update memory store: Invalid type");
   }
+}
+
+/**
+ * Optional: clear memory for a session (e.g., on disconnect or logout)
+ */
+export function clearSessionMemory(sessionId: string): void {
+  delete memoryStore[sessionId];
 }

@@ -18,9 +18,10 @@ import {
 } from "@/features/externalAPI/processors/chatProcessor";
 import { readStore, writeStore } from "@/features/externalAPI/memoryStore";
 import { getTokenVersion, verifyConfigJWT } from "@/features/externalAPI/jwt";
+import { setServerContext } from "@/features/externalAPI/serverContext";
 
 export const apiLogs: apiLogEntry[] = [];
-export const sseClients: Array<{ res: NextApiResponse }> = [];
+export const sseClients: Record<string, Array<{ res: NextApiResponse }>> = {};
 
 const JWT_SECRET = process.env.NEXT_PUBLIC_JWT_SECRET as string;
 
@@ -30,58 +31,42 @@ export default async function handler(
   res: NextApiResponse<ApiResponse>,
 ) {
   if (req.method === "GET") {
-    handleSSEConnection(req, res);
-    return;
-  }
-
-  // Syncing config to be accessible from server side
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.split(" ")[1];
-
-  if (!JWT_SECRET) {
-    return res.status(500).json({ error: "JWT_SECRET is not defined" });
-  }
-  if (!token) {
-    return res.status(401).json({ error: "No token provided" });
-  }
-  let decoded;
-  try {
-    decoded = verifyConfigJWT(token);
-  } catch (e) {
-    return res.status(401).json({ error: "Invalid token" });
-  }
-  const latestTokenVersion = getTokenVersion();
-  if (decoded?.tokenVersion !== latestTokenVersion) {
-    return res.status(401).json({ error: "JWT token version is outdated" });;
-  }
-  const configFromToken = decoded;
-
-  // Apply the config globally for the request
-  writeStore("config", configFromToken!);
-
-
-  if (config("external_api_enabled") !== "true") {
-    return sendError(res, "", "API is currently disabled.", 503);
+    const sessionId = req.query.sessionId as string;
+    if (!sessionId) {
+      return sendError(res, "", "sessionId is required", 400);
+    }
+    return handleSSEConnection(req, res, sessionId);
   }
 
   const { sessionId, inputType, payload, noProcessChat = false } = req.body;
-  const currentSessionId = generateSessionId(sessionId);
   const timestamp = new Date().toISOString();
+  if (!sessionId || typeof sessionId !== "string") {
+    return sendError(res, "", "sessionId is required and must be a string", 400);
+  }
+
+  // Apply the config globally for the request
+  setServerContext({sessionId});
+  const configFromToken = validateRequest(sessionId, req, res);
+  writeStore(sessionId, "config", configFromToken!);
+
+  if (config("external_api_enabled") !== "true") {
+    return sendError(res, sessionId, "API is currently disabled.", 503);
+  }
 
   if (!inputType) {
-    return sendError(res, currentSessionId, "inputType are required.");
+    return sendError(res, sessionId, "inputType are required.");
   }
 
   try {
-    const { response, outputType } = await processRequest(req, inputType, payload);
+    const { response, outputType } = await processRequest(req, sessionId, inputType, payload);
     apiLogs.push({
-      sessionId: currentSessionId,
+      sessionId,
       timestamp,
       inputType,
       outputType,
       response,
     });
-    res.status(200).json({ sessionId: currentSessionId, outputType, response });
+    res.status(200).json({ sessionId, outputType, response });
   } catch (error) {
     apiLogs.push({
       sessionId: sessionId,
@@ -90,38 +75,64 @@ export default async function handler(
       outputType: "Error",
       error: String(error),
     });
-    sendError(res, currentSessionId, String(error), 500);
+    sendError(res, sessionId, String(error), 500);
   }
 }
 
-const processRequest = async (req: NextApiRequest, inputType: string, payload: any) => {
+const validateRequest = (sessionId: string, req: NextApiRequest, res: NextApiResponse) => {
+  // Check if JWT_SECRET is defined
+  if (!JWT_SECRET) {
+    return sendError(res, sessionId, "JWT Secret isn't defined", 500);
+  }
+
+  // Check for JWT token in the Authorization header
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(" ")[1];
+  if (!token) {
+    return sendError(res, sessionId, "No JWT token provided", 401);
+  }
+
+  // Verify the JWT token
+  try {
+    const decoded = verifyConfigJWT(token);
+    if (decoded?.tokenVersion !== getTokenVersion()) {
+      return sendError(res, sessionId, "JWT token version is outdated", 401);
+
+    }
+    return decoded;
+  } catch {
+    return sendError(res, sessionId, "Invalid JWT token", 401);
+  }
+}
+
+const processRequest = async (req: NextApiRequest, sessionId: string, inputType: string, payload: any) => {
   switch (inputType) {
     case "Normal Chat Message":
       return { response: await processNormalChat(payload), outputType: "Chat" };
     case "Memory Request":
-      return { response: readStore("subconscious"), outputType: "Memory" };
+      return { response: readStore(sessionId, "subconscious"), outputType: "Memory" };
     case "RPC Logs":
-      return { response: readStore("logs"), outputType: "Logs" };
+      return { response: readStore(sessionId, "logs"), outputType: "Logs" };
     case "RPC User Input Messages":
       return {
-        response: readStore("userInputMessages"),
+        response: readStore(sessionId, "userInputMessages"),
         outputType: "User Input",
       };
     case "Update System Prompt":
       return {
-        response: await updateSystemPrompt(req, payload),
+        response: await updateSystemPrompt(sessionId, req, payload),
         outputType: "Updated system prompt",
       };
     case "Brain Message":
       return {
-        response: await handleSubconscious(payload),
+        response: await handleSubconscious(sessionId, payload),
         outputType: "Added subconscious stored prompt",
       };
     case "Chat History":
-      return { response: readStore("chatLogs"), outputType: "Chat History" };
+      return { response: readStore(sessionId, "chatLogs"), outputType: "Chat History" };
     case "Reasoning Server":
       return {
-        response: await triggerAmicaActions(req, payload),
+        response: await triggerAmicaActions(sessionId, req, payload),
         outputType: "Actions",
       };
     default:
@@ -133,18 +144,25 @@ const processRequest = async (req: NextApiRequest, inputType: string, payload: a
 const handleSSEConnection = (
   req: NextApiRequest,
   res: NextApiResponse,
+  sessionId: string,
 ): void => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("X-Accel-Buffering", "no");
   res.setHeader("Connection", "keep-alive");
 
-  const client = { res };
-  sseClients.push(client);
+  if (!sseClients[sessionId]) {
+    sseClients[sessionId] = [];
+  }
+
+  sseClients[sessionId].push({ res });
 
   req.on("close", () => {
-    console.log("Client disconnected");
-    sseClients.splice(sseClients.indexOf(client), 1);
+    console.log(`Client from session ${sessionId} disconnected`);
+    sseClients[sessionId] = sseClients[sessionId].filter((client) => client.res !== res);
+    if (sseClients[sessionId].length === 0) {
+      delete sseClients[sessionId];
+    }
     res.end();
   });
 };

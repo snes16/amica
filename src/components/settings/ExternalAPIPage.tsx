@@ -8,6 +8,7 @@ import { useContext, useEffect, useState } from 'react';
 import { ChatContext } from '@/features/chat/chatContext';
 import { handleConfig } from '@/features/externalAPI/externalAPI';
 import { SecretTextInput } from '../secretTextInput';
+import { generateSessionId } from '@/features/externalAPI/utils/apiHelper';
 
 export function ExternalAPIPage({
     externalApiEnabled,
@@ -54,6 +55,7 @@ export function ExternalAPIPage({
     const { t } = useTranslation();
     const { chat: bot } = useContext(ChatContext);
     const [jwtToken, setJwtToken] = useState(localStorage.getItem(prefixed("jwt_token")))
+    const [sessionId, setSessionId] = useState(localStorage.getItem(prefixed("session_id")))
 
     useEffect(() => {
         if (externalApiEnabled === true) {
@@ -69,6 +71,13 @@ export function ExternalAPIPage({
         localStorage.setItem(prefixed("jwt_token"), token!);
         setJwtOutdated(false);
         updateConfig("jwt_outdated", "false");
+    }
+
+    const handleRefreshSessionId = async () => {
+        const id = generateSessionId();
+        setSessionId(id);
+        localStorage.setItem(prefixed("session_id"), id);
+        updateConfig("session_id", id);
     }
 
     return (
@@ -98,6 +107,29 @@ export function ExternalAPIPage({
 
                 {externalApiEnabled && (
                     <>
+                        <li className="py-4">
+                            <FormRow label={t("Session ID")}>
+                                <div className="flex items-center space-x-4">
+                                    <input
+                                        type="text"
+                                        className="inline-flex items-center px-2 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-fuchsia-600 bg-fuchsia-100 hover:bg-fuchsia-200 focus:outline-transparent focus:border-transparent disabled:opacity-50 disabled:hover:bg-fuchsia-50 disabled:cursor-not-allowed hover:cursor-copy"
+                                        value={sessionId ?? "No session ID generated"}
+                                        readOnly
+                                        onClick={(e) => {
+                                            // @ts-ignore
+                                            navigator.clipboard.writeText(e.target.value);
+                                        }}
+                                    />
+                                    <IconButton
+                                        iconName="24/Reload"
+                                        label={"Refresh"}
+                                        isProcessing={false}
+                                        className="block h-9 w-auto rounded-md border-0 py-1.5 px-4 bg-secondary hover:bg-secondary-hover active:bg-secondary-active text-sm text-white ring-1 ring-inset ring-gray-300 sm:text-sm sm:leading-6"
+                                        onClick={handleRefreshSessionId}
+                                    ></IconButton>
+                                </div>
+                            </FormRow>
+                        </li>
 
                         <li className="py-4">
                             <FormRow label={t("Config JWT Token")}>

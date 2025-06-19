@@ -210,7 +210,7 @@ export default function Agent() {
 
         // Sync agent configuration
         if (configs.external_api_enabled === 'true') {
-          const jwtToken = await handleConfig("agent_route", configs);
+          const jwtToken = await handleConfig("agent_route", configs, configs.sessionId);
           setJwtToken(jwtToken ?? "");
         }
 

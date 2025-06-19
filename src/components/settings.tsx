@@ -171,7 +171,6 @@ export const Settings = ({
   const [telegramBotToken, setTelegramBotToken] = useState(config("telegram_bot_token"));
   const [telegramChatId, setTelegramChatId] = useState(config("telegram_chat_id"));
 
-
   const [name, setName] = useState(config("name"));
   const [systemPrompt, setSystemPrompt] = useState(config("system_prompt"));
 
