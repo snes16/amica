@@ -32,13 +32,11 @@ export function updateStore<K extends keyof MemoryData>(
   const current = memoryStore[key];
   if (Array.isArray(current)) {
     memoryStore[key] = [...current, values];
-    console.log(`Update ${key} with ${JSON.stringify(values)}`);
   } else if (
     typeof current === "object" &&
     typeof values === "object" &&
     !Array.isArray(current)
   ) {
-    console.log(`Update ${key} with ${JSON.stringify(values)}`);
     if (values.key && values.value !== undefined) {
       const { key, value } = values;
       if (!current.hasOwnProperty(key)) {
@@ -50,7 +48,6 @@ export function updateStore<K extends keyof MemoryData>(
         current[key] = value;
       }
     }
-    console.log(`Update ${key} with ${JSON.stringify(values)}`);
   } else {
     console.error("Update memory stroe: Invalid Type");
   }

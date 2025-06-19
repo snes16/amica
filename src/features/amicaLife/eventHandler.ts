@@ -13,11 +13,7 @@ import { Viewer } from "../vrmViewer/viewer";
 import { config } from "@/utils/config";
 import { handleSubconscious } from "../externalAPI/externalAPI";
 
-export const idleEvents = [
-  "VRMA",
-  "Subconcious",
-  "IdleTextPrompts",
-] as const;
+export const idleEvents = ["VRMA", "Subconcious", "IdleTextPrompts"] as const;
 
 export const basedPrompt = {
   idleTextPrompt: [
@@ -46,7 +42,7 @@ export const MAX_STORAGE_TOKENS = 3000;
 export type TimestampedPrompt = {
   prompt: string;
   timestamp: string;
-}
+};
 
 // Placeholder for storing compressed subconscious prompts
 export let storedPrompts: TimestampedPrompt[] = [];
@@ -58,7 +54,8 @@ let previousAnimation = "";
 async function handleVRMAnimationEvent(viewer: Viewer, amicaLife: AmicaLife) {
   let randomAnimation;
   do {
-    randomAnimation = animationList[Math.floor(Math.random() * animationList.length)];
+    randomAnimation =
+      animationList[Math.floor(Math.random() * animationList.length)];
   } while (basename(randomAnimation) === previousAnimation);
 
   // Store the current animation as the previous one for the next call
@@ -73,8 +70,13 @@ async function handleVRMAnimationEvent(viewer: Viewer, amicaLife: AmicaLife) {
         throw new Error("Loading animation failed");
       }
       // @ts-ignore
-      const duration = await viewer.model!.playAnimation(animation, previousAnimation);
-      requestAnimationFrame(() => { viewer.resetCameraLerp(); });
+      const duration = await viewer.model!.playAnimation(
+        animation,
+        previousAnimation,
+      );
+      requestAnimationFrame(() => {
+        viewer.resetCameraLerp();
+      });
 
       // Set timeout for the duration of the animation
       setTimeout(() => {
@@ -201,24 +203,23 @@ export async function handleSubconsciousEvent(
       timestamp: new Date().toISOString(),
     };
 
-    // External API feature
     if (config("external_api_enabled") === "true") {
       try {
-        storedSubconcious = await handleSubconscious(timestampedPrompt);
+        await handleSubconscious(timestampedPrompt);
       } catch (error) {
         console.error("Error handling external API:", error);
       }
-    // External API Off or Isn't development case
-    } else { 
-      storedSubconcious.push(timestampedPrompt);
-      let totalStorageTokens = storedSubconcious.reduce(
-        (totalTokens, prompt) => totalTokens + prompt.prompt.length,
-        0,
-      );
-      while (totalStorageTokens > MAX_STORAGE_TOKENS) {
-        const removed = storedSubconcious.shift();
-        totalStorageTokens -= removed!.prompt.length;
-      }
+    } 
+
+    // External API feature
+    storedSubconcious.push(timestampedPrompt);
+    let totalStorageTokens = storedSubconcious.reduce(
+      (totalTokens, prompt) => totalTokens + prompt.prompt.length,
+      0,
+    );
+    while (totalStorageTokens > MAX_STORAGE_TOKENS) {
+      const removed = storedSubconcious.shift();
+      totalStorageTokens -= removed!.prompt.length;
     }
 
     console.log("Stored subconcious prompts:", storedPrompts);

@@ -87,6 +87,7 @@ export const defaults = {
   x_access_secret: process.env.NEXT_PUBLIC_X_ACCESS_SECRET ?? '',
   x_bearer_token: process.env.NEXT_PUBLIC_X_BEARER_TOKEN ?? '',
   telegram_bot_token: process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN ?? '',
+  telegram_chat_id: process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID ?? '',
   amica_life_enabled: process.env.NEXT_PUBLIC_AMICA_LIFE_ENABLED ?? 'true',
   min_time_interval_sec: '10',
   max_time_interval_sec: '20',

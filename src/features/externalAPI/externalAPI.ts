@@ -9,9 +9,9 @@ import { writeStore } from "./memoryStore";
 export const issueJWT = `/api/jwt`;
 export const configUrl = `/api/dataHandler?type=config`;
 export const userInputUrl = `/api/dataHandler?type=userInputMessages`;
-export const subconsciousUrl = `/api/dataHandler?type=subconcious`;
+export const subconsciousUrl = `/api/dataHandler?type=subconscious`;
 export const logsUrl = `/api/dataHandler?type=logs`;
-export const chatLogsUrl = `/api/dataHandler?type=chatLogs`
+export const chatLogsUrl = `/api/dataHandler?type=chatLogs`;
 
 export async function fetcher(method: string, url: URL | string, data?: any) {
   switch (method) {
@@ -69,7 +69,7 @@ export async function handleConfig(
       }
 
       return token;
-    
+
     case "agent_route":
       const agentRouteResponse = await fetch(issueJWT, {
         method: "POST",
@@ -129,26 +129,9 @@ export async function handleChatLogs(messages: Message[]) {
 
 export async function handleSubconscious(
   timestampedPrompt: TimestampedPrompt,
-): Promise<any> {
+) {
   if (config("external_api_enabled") !== "true") {
     return;
-  }
-
-  const data = await fetch(subconsciousUrl);
-  if (!data.ok) {
-    throw new Error("Failed to get subconscious data");
-  }
-
-  const currentStoredSubconscious: TimestampedPrompt[] = await data.json();
-  currentStoredSubconscious.push(timestampedPrompt);
-
-  let totalStorageTokens = currentStoredSubconscious.reduce(
-    (totalTokens, prompt) => totalTokens + prompt.prompt.length,
-    0,
-  );
-  while (totalStorageTokens > MAX_STORAGE_TOKENS) {
-    const removed = currentStoredSubconscious.shift();
-    totalStorageTokens -= removed!.prompt.length;
   }
 
   const response = await fetch(subconsciousUrl, {
@@ -156,12 +139,10 @@ export async function handleSubconscious(
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ subconscious: currentStoredSubconscious }),
+    body: JSON.stringify(timestampedPrompt),
   });
 
   if (!response.ok) {
     throw new Error("Failed to update subconscious data");
   }
-
-  return currentStoredSubconscious;
 }

@@ -209,8 +209,10 @@ export default function Agent() {
         }
 
         // Sync agent configuration
-        const jwtToken = await handleConfig("agent_route", configs);
-        setJwtToken(jwtToken ?? "");
+        if (configs.external_api_enabled === 'true') {
+          const jwtToken = await handleConfig("agent_route", configs);
+          setJwtToken(jwtToken ?? "");
+        }
 
         bot.initSSE();
 

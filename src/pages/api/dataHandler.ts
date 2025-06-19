@@ -38,7 +38,7 @@ const handleGetRequest = (type: keyof MemoryData, res: NextApiResponse) => {
     let response;
 
     if (["config","subconscious","logs","userInputMessages","chatLogs"].includes(type)) {
-      response = writeStore(type,body);
+      response = updateStore(type,body);
       res.status(200).json(response);
     } else {
       return res.status(400).json({ error: 'Invalid type' });

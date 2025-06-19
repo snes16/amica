@@ -370,9 +370,15 @@ export class Chat {
       return;
     }  
     // Close existing SSE connection if it exists
-    this.closeSSE();
+    if (this.eventSource) {
+        console.log("Closing existing SSE connection...");
+        this.eventSource.close();
+        this.eventSource = null;
+    }
 
-    this.eventSource = new EventSource('/api/amicaHandler');
+    const match = window.location.pathname.match(/^\/agent\/([^/]+)/);
+    const extra = isAgentRoute() && match ? `/agent/${match[1]}` : ``;
+    this.eventSource = new EventSource(`/api${extra}/amicaHandler`);
 
     // Listen for incoming messages from the server
     this.eventSource.onmessage = async (event) => {
@@ -466,8 +472,6 @@ export class Chat {
         this.eventSource = null;
     }
   }
-
-
   public async makeAndHandleStream(messages: Message[]) {
     try {
       this.streams.push(await this.getChatResponseStream(messages));

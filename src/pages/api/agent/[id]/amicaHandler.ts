@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
-import { config } from "@/utils/config";
+import { config} from "@/utils/config";
 import {
   handleSubconscious,
 } from "@/features/externalAPI/externalAPI";

@@ -163,6 +163,14 @@ export const Settings = ({
 
   const [externalApiEnabled,setExternalApiEnabled] = useState<boolean>(config("external_api_enabled") === 'true' ? true : false);
   const [jwtOutdated,setJwtOutdated] = useState<boolean>(config("jwt_outdated") === 'true' ? true : false);
+  const [xApiKey, setXApiKey] = useState(config("x_api_key"));
+  const [xApiSecret, setXAPISecret] = useState(config("x_api_secret"));
+  const [xAccessToken, setXAcessToken] = useState(config("x_access_token"));
+  const [xAccessSecret, setXAccessSecret] = useState(config("x_access_secret"));
+  const [xBearerToken, setXBearerToken] = useState(config("x_bearer_token"));
+  const [telegramBotToken, setTelegramBotToken] = useState(config("telegram_bot_token"));
+  const [telegramChatId, setTelegramChatId] = useState(config("telegram_chat_id"));
+
 
   const [name, setName] = useState(config("name"));
   const [systemPrompt, setSystemPrompt] = useState(config("system_prompt"));
@@ -275,7 +283,7 @@ export const Settings = ({
     whisperOpenAIApiKey, whisperOpenAIModel, whisperOpenAIUrl,
     whisperCppUrl,
     amicaLifeEnabled, timeBeforeIdle, minTimeInterval, maxTimeInterval, timeToSleep, idleTextPrompt,
-    externalApiEnabled,
+    externalApiEnabled, xApiKey, xApiSecret, xAccessToken, xAccessSecret, xBearerToken, telegramBotToken, telegramChatId,
     name,
     systemPrompt,
     sttWakeWordEnabled, sttWakeWord,
@@ -637,8 +645,22 @@ export const Settings = ({
       return <ExternalAPIPage
         externalApiEnabled={externalApiEnabled}
         jwtOutdated={jwtOutdated}
+        xApiKey={xApiKey}
+        xApiSecret={xApiSecret}
+        xAccessToken={xAccessToken}
+        xAccessSecret={xAccessSecret}
+        xBearerToken={xBearerToken}
+        telegramBotToken={telegramBotToken}
+        telegramChatId={telegramChatId}
         setExternalApiEnabled={setExternalApiEnabled}
         setJwtOutdated={setJwtOutdated}
+        setXAPIKey={setXApiKey}
+        setXAPISecret={setXAPISecret}
+        setXAccessToken={setXAcessToken}
+        setXAccessSecret={setXAccessSecret}
+        setXBearerToken={setXBearerToken}
+        setTelegramBotToken={setTelegramBotToken}
+        setTelegramChatId={setTelegramChatId}
         setSettingsUpdated={setSettingsUpdated}
         />
 
