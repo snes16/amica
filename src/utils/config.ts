@@ -133,7 +133,7 @@ if (typeof window !== "undefined") {
 export function config(key: string): string {
   if (typeof localStorage !== "undefined") {
     if (isAgentRoute()) {
-      const sessionId = getServerSessionId();
+      const sessionId = (<any>localStorage).getItem(prefixed("session_id"));
       const agentConfig = readStore(sessionId!, "config");
       return agentConfig[key];
     }

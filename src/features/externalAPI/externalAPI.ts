@@ -1,4 +1,4 @@
-import { config, defaults, prefixed } from "@/utils/config";
+import { config, defaults, prefixed, updateConfig } from "@/utils/config";
 import {
   MAX_STORAGE_TOKENS,
   TimestampedPrompt,
@@ -81,6 +81,7 @@ export async function handleConfig(
         body: JSON.stringify({ config: data }),
       });
 
+      updateConfig("session_id", sessionId!);
       if (data) {
         writeStore(sessionId!, "config", data);
       }
@@ -96,7 +97,7 @@ export async function handleConfig(
       return agentRouteToken;
 
     case "update":
-      await fetcher("POST", configUrl, data);
+      await fetcher("POST", `${userInputUrl}&sessionId=${config('session_id')}`, data);
       break;
 
     default:

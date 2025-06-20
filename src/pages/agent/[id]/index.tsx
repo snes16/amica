@@ -66,6 +66,7 @@ import { abi } from "@/utils/abi";
 import { decodeAgentId, encodeAgentId } from "@/utils/fileUtils";
 import { DiagnosisScript } from "@/components/diagnosisScript";
 import { handleConfig } from "@/features/externalAPI/externalAPI";
+import { generateSessionId } from "@/features/externalAPI/utils/apiHelper";
 
 const m_plus_2 = M_PLUS_2({
   variable: "--font-m-plus-2",
@@ -91,7 +92,9 @@ export default function Agent() {
   const { amicaLife: amicaLife } = useContext(AmicaLifeContext);
 
   const [jwtToken, setJwtToken] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [sessionId, setSessionId] = useState("");
+  const [jwtCopied, setJwtCopied] = useState(false);
+  const [sessionIdCopied, setSessionIdCopied] = useState(false);
 
   const [chatSpeaking, setChatSpeaking] = useState(false);
   const [chatProcessing, setChatProcessing] = useState(false);
@@ -209,8 +212,11 @@ export default function Agent() {
         }
 
         // Sync agent configuration
+        const sessionId = generateSessionId();
+        configs.session_id = sessionId;
         if (configs.external_api_enabled === 'true') {
-          const jwtToken = await handleConfig("agent_route", configs, configs.sessionId);
+          const jwtToken = await handleConfig("agent_route", configs, sessionId);
+          setSessionId(sessionId);
           setJwtToken(jwtToken ?? "");
         }
 
@@ -255,9 +261,17 @@ export default function Agent() {
 
   function handleCopyJWT() {
     navigator.clipboard.writeText(jwtToken).then(() => {
-      setCopied(true);
+      setJwtCopied(true);
       setShowNotification(true);
-      setTimeout(() => { setCopied(false); setShowNotification(false); }, 4000);
+      setTimeout(() => { setJwtCopied(false); setShowNotification(false); }, 4000);
+    });
+  }
+
+  function handleCopySessionId() {
+    navigator.clipboard.writeText(sessionId).then(() => {
+      setSessionIdCopied(true);
+      setShowNotification(true);
+      setTimeout(() => { setSessionIdCopied(false); setShowNotification(false); }, 4000);
     });
   }
 
@@ -350,8 +364,8 @@ export default function Agent() {
                     <CheckCircleIcon className="h-6 w-6 text-green-400" aria-hidden="true" />
                   </div>
                   <div className="ml-3 w-0 flex-1 pt-0.5">
-                    <p className="text-sm font-medium text-gray-900">JWT Copied!</p>
-                    <p className="mt-1 text-sm text-gray-500">Your JWT were copied successfully.</p>
+                    <p className="text-sm font-medium text-gray-900">{`${jwtCopied ? 'JWT' : 'Session ID'} Copied!`}</p>
+                    <p className="mt-1 text-sm text-gray-500">{`Your ${jwtCopied ? 'JWT' : 'Session ID'} was copied successfully.`}</p>
                   </div>
                   <div className="ml-4 flex flex-shrink-0">
                     <button
@@ -458,22 +472,66 @@ export default function Agent() {
               <span className="text-white hidden">Diagnosis Script</span>
             </div>
 
-            {config("external_api_enabled") === 'true' && jwtToken && (
-              <div className="flex flex-row items-center space-x-2">
-                {copied ? (
-                  <ClipboardDocumentCheckIcon
-                    className="h-7 w-7 text-green-400 opacity-100 hover:opacity-100 active:opacity-100"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <ClipboardIcon
-                    className="h-7 w-7 text-white opacity-50 hover:opacity-100 active:opacity-100 hover:cursor-pointer"
-                    aria-hidden="true"
-                    onClick={handleCopyJWT}
-                  />
-                )}
-                <span className="text-white hidden">Copy JWT Token</span>
-              </div>
+            {/* JWT Copied */}
+            {config("external_api_enabled") === 'true' && jwtToken && sessionId && (
+              <Menu as="div" className="relative inline-block text-left">
+                <div>
+                  <Menu.Button className="flex items-center justify-center w-full">
+                    {jwtCopied || sessionIdCopied ? (
+                      <ClipboardDocumentCheckIcon
+                        className="h-7 w-7 text-green-400 opacity-100"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <ClipboardIcon
+                        className="h-7 w-7 text-white opacity-50 hover:opacity-100 active:opacity-100 hover:cursor-pointer"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </Menu.Button>
+                </div>
+
+                <Transition
+                  as={Fragment}
+                  enter="transition ease-out duration-100"
+                  enterFrom="transform opacity-0 scale-95"
+                  enterTo="transform opacity-100 scale-100"
+                  leave="transition ease-in duration-75"
+                  leaveFrom="transform opacity-100 scale-100"
+                  leaveTo="transform opacity-0 scale-95"
+                >
+                  <Menu.Items className="absolute left-0 mt-2 w-48 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                    <div className="py-1">
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={handleCopyJWT}
+                            className={clsx(
+                              active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
+                              'block w-full text-left px-4 py-2 text-sm'
+                            )}
+                          >
+                            Copy JWT Token
+                          </button>
+                        )}
+                      </Menu.Item>
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={handleCopySessionId}
+                            className={clsx(
+                              active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
+                              'block w-full text-left px-4 py-2 text-sm'
+                            )}
+                          >
+                            Copy Session ID
+                          </button>
+                        )}
+                      </Menu.Item>
+                    </div>
+                  </Menu.Items>
+                </Transition>
+              </Menu>
             )}
 
 
