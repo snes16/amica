@@ -32,7 +32,7 @@ export const sendToClients = async (sessionId: string, req: NextApiRequest, mess
   const handlerModule = isAgentRoute
       ? await import('@/pages/api/agent/[id]/amicaHandler')
       : await import('@/pages/api/amicaHandler');
-  const sseClients = handlerModule.sseClients as Record<string, { res: NextApiResponse }[]>;
+  const sseClients: Record<string, { res: NextApiResponse }[]> = handlerModule.sseClients;
   const formattedMessage = JSON.stringify(message);
 
   const sessionClients = sseClients[sessionId];

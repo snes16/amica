@@ -97,7 +97,7 @@ export async function handleConfig(
       return agentRouteToken;
 
     case "update":
-      await fetcher("POST", `${userInputUrl}&sessionId=${config('session_id')}`, data);
+      await fetcher("POST", `${configUrl}&sessionId=${config('session_id')}`, data);
       break;
 
     default:

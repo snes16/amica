@@ -8,16 +8,22 @@ export const handleSocialMediaActions = async (
   socialMedia: string
 ): Promise<any> => {
   switch (socialMedia) {
-    // case "twitter": {
-    //   const { getTwitterClient } = await import("../socialMedia/twitterClient");
-    //   const twitterClient = getTwitterClient();
-    //   return await twitterClient.postTweet(message);
-    // }
-    // case "tg": {
-    //   const { getTelegramClient } = await import("../socialMedia/telegramClient");
-    //   const telegramClient = getTelegramClient();
-    //   return await telegramClient.postMessage(message);
-    // }
+    case "twitter": {
+      if (typeof window === 'undefined') {
+        const { getTwitterClient } = await import("../socialMedia/twitterClient");
+        const twitterClient = getTwitterClient();
+        return await twitterClient.postTweet(message);
+      }
+      return;
+    }
+    case "tg": {
+      if (typeof window === 'undefined') {
+        const { getTelegramClient } = await import("../socialMedia/telegramClient");
+        const telegramClient = getTelegramClient();
+        return await telegramClient.postMessage(message);
+      }
+      return;
+    }
     case "none":
       sendToClients(sessionId, req, { type: "normal", data: message });
       return "Broadcasted to clients";

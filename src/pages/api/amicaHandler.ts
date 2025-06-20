@@ -16,7 +16,7 @@ import {
   triggerAmicaActions,
   updateSystemPrompt,
 } from "@/features/externalAPI/processors/chatProcessor";
-import { readStore, writeStore } from "@/features/externalAPI/memoryStore";
+import { readStore, updateStore, writeStore } from "@/features/externalAPI/memoryStore";
 import { getTokenVersion, verifyConfigJWT } from "@/features/externalAPI/jwt";
 import { setServerContext } from "@/features/externalAPI/serverContext";
 
@@ -35,7 +35,8 @@ export default async function handler(
     if (!sessionId) {
       return sendError(res, "", "sessionId is required", 400);
     }
-    return handleSSEConnection(req, res, sessionId);
+    handleSSEConnection(req, res, sessionId)
+    return ;
   }
 
   const { sessionId, inputType, payload, noProcessChat = false } = req.body;
@@ -125,7 +126,7 @@ const processRequest = async (req: NextApiRequest, sessionId: string, inputType:
       };
     case "Brain Message":
       return {
-        response: await handleSubconscious(sessionId, payload),
+        response: updateStore(sessionId,"subconscious", payload),
         outputType: "Added subconscious stored prompt",
       };
     case "Chat History":

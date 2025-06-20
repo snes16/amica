@@ -73,13 +73,6 @@ export function ExternalAPIPage({
         updateConfig("jwt_outdated", "false");
     }
 
-    const handleRefreshSessionId = async () => {
-        const id = generateSessionId();
-        setSessionId(id);
-        localStorage.setItem(prefixed("session_id"), id);
-        updateConfig("session_id", id);
-    }
-
     return (
         <BasicPage
             title={`${t("External API")} ${t("Settings")}`}
@@ -120,13 +113,6 @@ export function ExternalAPIPage({
                                             navigator.clipboard.writeText(e.target.value);
                                         }}
                                     />
-                                    <IconButton
-                                        iconName="24/Reload"
-                                        label={"Refresh"}
-                                        isProcessing={false}
-                                        className="block h-9 w-auto rounded-md border-0 py-1.5 px-4 bg-secondary hover:bg-secondary-hover active:bg-secondary-active text-sm text-white ring-1 ring-inset ring-gray-300 sm:text-sm sm:leading-6"
-                                        onClick={handleRefreshSessionId}
-                                    ></IconButton>
                                 </div>
                             </FormRow>
                         </li>
