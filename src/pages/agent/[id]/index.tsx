@@ -66,7 +66,7 @@ import { abi } from "@/utils/abi";
 import { decodeAgentId, encodeAgentId } from "@/utils/fileUtils";
 import { DiagnosisScript } from "@/components/diagnosisScript";
 import { handleConfig } from "@/features/externalAPI/externalAPI";
-import { generateSessionId } from "@/features/externalAPI/utils/apiHelper";
+import { randomBytes } from "crypto";
 
 const m_plus_2 = M_PLUS_2({
   variable: "--font-m-plus-2",
@@ -147,6 +147,9 @@ export default function Agent() {
   ];
 
   const [agentData, setAgentData] = useState<string[] | null>(null);
+
+  const generateSessionId = (sessionId?: string): string =>
+    sessionId || randomBytes(8).toString("hex");
 
   useEffect(() => {
     async function fetchNFTMetadata() {
