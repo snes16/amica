@@ -5,7 +5,7 @@ import {
 } from "../amicaLife/eventHandler";
 import { Message } from "../chat/messages";
 import { writeStore } from "./memoryStore";
-import { generateSessionId } from "./utils/apiHelper";
+import { randomBytes } from "crypto";
 
 export const issueJWT = `/api/jwt`;
 export const configUrl = `/api/dataHandler?type=config`;
@@ -13,6 +13,9 @@ export const userInputUrl = `/api/dataHandler?type=userInputMessages`;
 export const subconsciousUrl = `/api/dataHandler?type=subconscious`;
 export const logsUrl = `/api/dataHandler?type=logs`;
 export const chatLogsUrl = `/api/dataHandler?type=chatLogs`;
+
+const generateSessionId = (sessionId?: string): string =>
+  sessionId || randomBytes(8).toString("hex");
 
 export async function fetcher(method: string, url: URL | string, data?: any) {
   switch (method) {
@@ -61,7 +64,7 @@ export async function handleConfig(
       const response = await fetch(issueJWT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ config: localStorageData }),
+        body: JSON.stringify({ sessionId: id, config: localStorageData }),
       });
 
       let token: string = "";
@@ -78,7 +81,7 @@ export async function handleConfig(
       const agentRouteResponse = await fetch(issueJWT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ config: data }),
+        body: JSON.stringify({ sessionId: sessionId!, config: data }),
       });
 
       updateConfig("session_id", sessionId!);

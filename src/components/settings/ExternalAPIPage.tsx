@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 
 import { BasicPage, FormRow, NotUsingAlert } from './common';
-import { prefixed, updateConfig } from "@/utils/config";
+import { config, prefixed, updateConfig } from "@/utils/config";
 import { SwitchBox } from "@/components/switchBox"
 import { IconButton } from '../iconButton';
 import { useContext, useEffect, useState } from 'react';
@@ -68,6 +68,7 @@ export function ExternalAPIPage({
     const handleRefreshJwtToken = async () => {
         const token = await handleConfig("init");
         setJwtToken(token!);
+        setSessionId(config("session_id"));
         localStorage.setItem(prefixed("jwt_token"), token!);
         setJwtOutdated(false);
         updateConfig("jwt_outdated", "false");

@@ -4,10 +4,7 @@ import { TimestampedPrompt } from "@/features/amicaLife/eventHandler";
 import { config as configs } from "@/utils/config";
 import { apiLogs } from "./amicaHandler";
 
-import {
-  ApiResponse,
-  sendError,
-} from "@/features/externalAPI/utils/apiHelper";
+import { ApiResponse, sendError } from "@/features/externalAPI/utils/apiHelper";
 import { transcribeVoice } from "@/features/externalAPI/processors/voiceProcessor";
 import { processImage } from "@/features/externalAPI/processors/imageProcessor";
 
@@ -15,8 +12,8 @@ import formidable from "formidable";
 import fs from "fs";
 import { WaveFile } from "wavefile";
 import { writeStore } from "@/features/externalAPI/memoryStore";
-import { getTokenVersion, verifyConfigJWT } from "@/features/externalAPI/jwt";
-import { setServerContext } from "@/features/externalAPI/serverContext";
+import { verifyConfigJWT } from "@/features/externalAPI/jwt";
+import { runWithServerContext } from "@/features/externalAPI/serverContext";
 
 // Configure body parsing: disable only for multipart/form-data
 export const config = {
@@ -32,10 +29,6 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse>,
 ) {
-  // Syncing config to be accessible from server side
-  const configFromToken = validateRequest(req, res);
-  const timestamp = new Date().toISOString();
-
   if (req.headers["content-type"]?.includes("multipart/form-data")) {
     // Handle form-data
     const form = formidable({});
@@ -45,55 +38,61 @@ export default async function handler(
         return sendError(res, "", "Failed to parse form data.");
       }
 
-      const sessionId = fields?.sessionId?.[0]
+      const sessionId = fields?.sessionId?.[0];
       if (!sessionId || typeof sessionId !== "string") {
-        return sendError(res, "", "sessionId is required and must be a string", 400);
+        return sendError(
+          res,
+          "",
+          "sessionId is required and must be a string",
+          400,
+        );
       }
+
+      // Syncing config to be accessible from server side
+      const configFromToken = validateRequest(sessionId, req, res);
+      const timestamp = new Date().toISOString();
 
       // Apply the config globally for the request
-      setServerContext({ sessionId });
-      writeStore(sessionId, "config", configFromToken!);
-      if (configs("external_api_enabled") !== "true") {
-        return sendError(res, "", "API is currently disabled.", 503);
-      }
+      return runWithServerContext({ sessionId }, async () => {
+        writeStore(sessionId, "config", configFromToken!);
+        if (configs("external_api_enabled") !== "true") {
+          return sendError(res, "", "API is currently disabled.", 503);
+        }
 
-      try {
-        await handleRequest(sessionId, timestamp, fields, files, res);
-      } catch (error) {
-        console.error("Error in form processing:", error);
-        sendError(res, sessionId, String(error), 500);
-      }
+        try {
+          await handleRequest(sessionId, timestamp, fields, files, res);
+        } catch (error) {
+          console.error("Error in form processing:", error);
+          sendError(res, sessionId, String(error), 500);
+        }
+      });
     });
   } else {
     return sendError(res, "", "Incorrect type");
   }
 }
 
-const validateRequest = (req: NextApiRequest, res: NextApiResponse) => {
+const validateRequest = (sessionId: string, req: NextApiRequest, res: NextApiResponse) => {
   // Check if JWT_SECRET is defined
   if (!JWT_SECRET) {
-    return sendError(res, "", "JWT Secret isn't defined", 500);
+    return sendError(res, sessionId, "JWT Secret isn't defined", 500);
   }
 
   // Check for JWT token in the Authorization header
   const authHeader = req.headers.authorization;
   const token = authHeader?.split(" ")[1];
   if (!token) {
-    return sendError(res, "", "No JWT token provided", 401);
+    return sendError(res, sessionId, "No JWT token provided", 401);
   }
 
   // Verify the JWT token
   try {
     const decoded = verifyConfigJWT(token);
-    if (decoded?.tokenVersion !== getTokenVersion()) {
-      return sendError(res, "", "JWT token version is outdated", 401);
-
-    }
     return decoded;
   } catch {
-    return sendError(res, "", "Invalid JWT token", 401);
+    return sendError(res, sessionId, "Invalid JWT token", 401);
   }
-}
+};
 
 async function handleRequest(
   sessionId: string,
