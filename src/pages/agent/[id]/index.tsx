@@ -214,8 +214,8 @@ export default function Agent() {
         // Sync agent configuration
         const sessionId = generateSessionId();
         configs.session_id = sessionId;
+        const jwtToken = await handleConfig("agent_route", configs, sessionId);
         if (configs.external_api_enabled === 'true') {
-          const jwtToken = await handleConfig("agent_route", configs, sessionId);
           setSessionId(sessionId);
           setJwtToken(jwtToken ?? "");
         }

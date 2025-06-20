@@ -60,9 +60,6 @@ export function updateStore<K extends keyof MemoryData>(
   ) {
     if (values.key && values.value !== undefined) {
       const { key: configKey, value } = values;
-      if (!(configKey in current)) {
-        throw new Error(`Config key "${configKey}" not found.`);
-      }
       current[configKey] = value;
     } else {
       for (const [propKey, propVal] of Object.entries(values)) {
