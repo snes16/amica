@@ -449,7 +449,7 @@ export class Chat {
         }
       )
       .subscribe((status: any) => {
-        console.log("Realtime subscription status:", status);
+        console.log(`Realtime subscription session id: ${sessionId} status:`, status);
       });
   }
 
@@ -486,7 +486,7 @@ export class Chat {
           console.error("Unexpected error during log upload:", err);
         }
       }
-    }, 40_000); // every 40 seconds
+    }, 30_000); // every 30 seconds
   }
 
   public async makeAndHandleStream(messages: Message[]) {

@@ -1,4 +1,4 @@
-import { config, defaults, prefixed } from "@/utils/config";
+import { config, defaults, prefixed, syncAgentConfig } from "@/utils/config";
 import { randomBytes } from "crypto";
 import { Message } from "../chat/messages";
 import { TimestampedPrompt } from "../amicaLife/eventHandler";
@@ -39,6 +39,8 @@ export async function handleConfig(agentRoute: boolean = false, configs?: Record
       data = configs;
     }
   }
+
+  syncAgentConfig(data);
 
   await upsertToTable("configs", { session_id: sessionId, data });
   return sessionId;

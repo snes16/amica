@@ -65,7 +65,7 @@ import { Contract, JsonRpcProvider } from 'ethers';
 import { abi } from "@/utils/abi";
 import { decodeAgentId, encodeAgentId } from "@/utils/fileUtils";
 import { DiagnosisScript } from "@/components/diagnosisScript";
-import { deleteAllSessionData, handleConfig } from "@/features/externalAPI/externalAPI";
+import { deleteAllSessionData, handleChatLogs, handleConfig } from "@/features/externalAPI/externalAPI";
 import { randomBytes } from "crypto";
 import { useFullUnmountHandler } from "@/hooks/useUnmountHandler";
 
@@ -87,10 +87,6 @@ const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS as `0x${st
 export default function Agent() {
   const { t, i18n } = useTranslation();
   const currLang = i18n.resolvedLanguage;
-  const { viewer } = useContext(ViewerContext);
-  const { alert } = useContext(AlertContext);
-  const { chat: bot } = useContext(ChatContext);
-  const { amicaLife: amicaLife } = useContext(AmicaLifeContext);
 
   const [sessionId, setSessionId] = useState("");
   const [jwtCopied, setJwtCopied] = useState(false);
@@ -217,10 +213,10 @@ export default function Agent() {
         // Sync agent configuration
         if (configs.external_api_enabled === 'true') {
           const sessionId = await handleConfig(true, configs);
+          configs.session_id = sessionId;
           setSessionId(sessionId!);
-          bot.initRealtime();
-        }
-
+          // bot.initRealtime();
+        } 
         // Sync agent configuration
         syncAgentConfig(configs);
 
@@ -274,8 +270,12 @@ export default function Agent() {
     });
   }
 
-
+  const { viewer } = useContext(ViewerContext);
+  const { alert } = useContext(AlertContext);
+  const { chat: bot } = useContext(ChatContext);
+  const { amicaLife: amicaLife } = useContext(AmicaLifeContext);
   useEffect(() => {
+    if (!loaded) return ;
     bot.initialize(
       amicaLife,
       viewer,
@@ -293,16 +293,21 @@ export default function Agent() {
     if (config("tts_backend") === 'openai') {
       updateConfig("tts_backend", "openai_tts");
     }
-  }, [bot, viewer]);
+  }, [loaded]);
 
   useEffect(() => {
+    if (!loaded) return ;
     amicaLife.initialize(
       viewer,
       bot,
       setSubconciousLogs,
       chatSpeaking,
     );
-  }, [amicaLife, bot, viewer]);
+  }, [loaded]);
+
+  useEffect(() => {
+    handleChatLogs(chatLog);
+  }, [chatLog]);
 
   // this exists to prevent build errors with ssr
   useEffect(() => setShowContent(true), []);
