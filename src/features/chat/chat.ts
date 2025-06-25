@@ -27,8 +27,10 @@ import { wait } from "@/utils/wait";
 import { isCharacterIdle, characterIdleTime, resetIdleTimer } from "@/utils/isIdle";
 import { getOpenRouterChatResponseStream } from './openRouterChat';
 import { loadVRMAnimation } from '@/lib/VRMAnimation/loadVRMAnimation';
-import { handleUserInput } from '../externalAPI/externalAPI';
+import { handleLogs, handleUserInput } from '../externalAPI/externalAPI';
 import { isAgentRoute } from '@/utils/agentUtils';
+import { RealtimeChannel } from '@supabase/supabase-js';
+import { psvSupabase } from '@/utils/supabase';
 
 
 type Speak = {
@@ -79,7 +81,8 @@ export class Chat {
 
   public currentStreamIdx: number;
 
-  private eventSource: EventSource | null = null
+  private realtimeChannel: RealtimeChannel | null = null
+  private logUploadInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.initialized = false;
@@ -129,7 +132,7 @@ export class Chat {
     this.updateAwake();
     this.initialized = true;
 
-    if (!isAgentRoute()) this.initSSE();
+    this.initRealtime();
   }
 
   public setMessageList(messages: Message[]) {
@@ -341,7 +344,13 @@ export class Chat {
     if (!amicaLife) {
       console.log('receiveMessageFromUser', message);
 
-      await handleUserInput(message);
+      if (config("external_api_enabled") === "true") {
+        await handleUserInput([
+          { role: "system", content: config("system_prompt") },
+          ...this.messageList!.filter(msg => msg.role === "user"),
+          { role: "user", content: message },
+        ]);
+      }
 
       this.amicaLife?.receiveMessageFromUser(message);
 
@@ -364,115 +373,122 @@ export class Chat {
     await this.makeAndHandleStream(messages);
   }
 
-  public initSSE() {
+  public async initRealtime() {
     if (config("external_api_enabled") !== "true") {
-      console.log("External API Disabled")
+      console.log("External API Disabled");
       return;
-    }  
-    // Close existing SSE connection if it exists
-    if (this.eventSource) {
-        console.log("Closing existing SSE connection...");
-        this.eventSource.close();
-        this.eventSource = null;
     }
 
-    const sessionId = config('session_id');
-    const match = window.location.pathname.match(/^\/agent\/([^/]+)/);
-    const extra = isAgentRoute() && match ? `/agent/${match[1]}` : ``;
-    this.eventSource = new EventSource(`/api${extra}/amicaHandler?sessionId=${sessionId}`);
+    const sessionId = config("session_id");
 
-    // Listen for incoming messages from the server
-    this.eventSource.onmessage = async (event) => {
-      try {
-        // Parse the incoming JSON message
-        const message = JSON.parse(event.data);
+    // Unsubscribe if already active
+    if (this.realtimeChannel) {
+      console.log("Closing existing Realtime channel...");
+      await psvSupabase.removeChannel(this.realtimeChannel);
+    }
 
-        console.log(message);
+    this.startLogUpload();
 
-        // Destructure to get the message type and data
-        const { type, data } = message;
+    // Subscribe to realtime events for this session
+    this.realtimeChannel = psvSupabase
+      .channel(`realtime:events:${sessionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "external-api",
+          table: "events",
+          filter: `session_id=eq.${sessionId}`,
+        },
+        async (payload: { new: { type: any; data: any; }; }) => {
+          const { type, data } = payload.new;
+          console.log("Realtime message received:", type, data);
 
-        // Handle the message based on its type
-        switch (type) {
-          case 'normal':
-            console.log('Normal message received:', data);
-            const messages: Message[] = [
-              { role: "system", content: config("system_prompt") },
-              ...this.messageList!,
-              { role: "user", content: data},
-            ];
-            let stream = await getEchoChatResponseStream(messages);
-            this.streams.push(stream);
-            this.handleChatResponseStream();
-            break;
-          
-          case 'animation':
-            console.log('Animation data received:', data);
-            const animation = await loadVRMAnimation(`/animations/${data}`);
-            if (!animation) {
-              throw new Error("Loading animation failed");
-            }
-            this.viewer?.model?.playAnimation(animation,data);
-            requestAnimationFrame(() => { this.viewer?.resetCameraLerp(); });
-            break;
+          switch (type) {
+            case "normal":
+              const messages: Message[] = [
+                { role: "system", content: config("system_prompt") },
+                ...this.messageList!,
+                { role: "user", content: data },
+              ];
+              const stream = await getEchoChatResponseStream(messages);
+              this.streams.push(stream);
+              this.handleChatResponseStream();
+              break;
 
-          case 'playback':
-            console.log('Playback flag received:', data);
-            this.viewer?.startRecording();
-            // Automatically stop recording after 10 seconds
-            setTimeout(() => {
-              this.viewer?.stopRecording((videoBlob) => {
-                // Log video blob to console
-                console.log("Video recording finished", videoBlob);
+            case "animation":
+              const animation = await loadVRMAnimation(`/animations/${data}`);
+              if (!animation) throw new Error("Loading animation failed");
+              this.viewer?.model?.playAnimation(animation, data);
+              requestAnimationFrame(() => this.viewer?.resetCameraLerp());
+              break;
 
-                // Create a download link for the video file
-                const url = URL.createObjectURL(videoBlob!);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "recording.webm"; // Set the file name for download
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+            case "playback":
+              this.viewer?.startRecording();
+              setTimeout(() => {
+                this.viewer?.stopRecording((videoBlob) => {
+                  const url = URL.createObjectURL(videoBlob!);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "recording.webm";
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                });
+              }, Number(data));
+              break;
 
-                // Revoke the URL to free up memory
-                URL.revokeObjectURL(url);
-              });
-            }, data); // Stop recording after 10 seconds
-            break;
+            case "systemPrompt":
+              updateConfig("system_prompt", data);
+              break;
 
-          case 'systemPrompt':
-            console.log('System Prompt data received:', data);
-            updateConfig("system_prompt",data);
-            break;
-
-          default:
-            console.warn('Unknown message type:', type);
+            default:
+              console.warn("Unknown message type:", type);
+          }
         }
-      } catch (error) {
-        console.error('Error parsing SSE message:', error);
-      }
-    };
-
-
-    this.eventSource.addEventListener('end', () => {
-      console.log('SSE session ended');
-      this.eventSource?.close();
-    });
-
-    this.eventSource.onerror = (error) => {
-      console.error('Error in SSE connection:', error);
-      this.eventSource?.close();
-      setTimeout(this.initSSE, 500);
-    };
+      )
+      .subscribe((status: any) => {
+        console.log("Realtime subscription status:", status);
+      });
   }
 
-  public closeSSE() {
-    if (this.eventSource) {
-        console.log("Closing existing SSE connection...");
-        this.eventSource.close();
-        this.eventSource = null;
+  public async closeRealtime() {
+    if (this.realtimeChannel) {
+      console.log("Closing existing Realtime channel...");
+      await psvSupabase.removeChannel(this.realtimeChannel);
+      this.realtimeChannel = null;
+    }
+
+    if (this.logUploadInterval) {
+      clearInterval(this.logUploadInterval);
+      this.logUploadInterval = null;
     }
   }
+
+  public async startLogUpload() {
+    if (typeof window === "undefined") return;
+
+    if (this.logUploadInterval) {
+      clearInterval(this.logUploadInterval);
+    }
+    
+    this.logUploadInterval = setInterval(async () => {
+      const logs = (window as any).error_handler_logs;
+      const sessionId = config("session_id");
+      const apiEnabled = config("external_api_enabled");
+
+      if (logs?.length && apiEnabled === "true" && sessionId) {
+        try {
+          const last50 = logs.slice(-20)
+          await handleLogs(sessionId, last50);
+        } catch (err) {
+          console.error("Unexpected error during log upload:", err);
+        }
+      }
+    }, 40_000); // every 40 seconds
+  }
+
   public async makeAndHandleStream(messages: Message[]) {
     try {
       this.streams.push(await this.getChatResponseStream(messages));

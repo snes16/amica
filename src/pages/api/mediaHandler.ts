@@ -11,8 +11,7 @@ import { processImage } from "@/features/externalAPI/processors/imageProcessor";
 import formidable from "formidable";
 import fs from "fs";
 import { WaveFile } from "wavefile";
-import { writeStore } from "@/features/externalAPI/memoryStore";
-import { verifyConfigJWT } from "@/features/externalAPI/jwt";
+import { readStore, writeServerConfig } from "@/features/externalAPI/memoryStore";
 import { runWithServerContext } from "@/features/externalAPI/serverContext";
 
 // Configure body parsing: disable only for multipart/form-data
@@ -21,8 +20,6 @@ export const config = {
     bodyParser: false,
   },
 };
-
-const JWT_SECRET = process.env.NEXT_PUBLIC_JWT_SECRET as string;
 
 // Main API handler
 export default async function handler(
@@ -49,12 +46,12 @@ export default async function handler(
       }
 
       // Syncing config to be accessible from server side
-      const configFromToken = validateRequest(sessionId, req, res);
+      const configFromToken = await readStore(sessionId, "configs")
       const timestamp = new Date().toISOString();
 
       // Apply the config globally for the request
       return runWithServerContext({ sessionId }, async () => {
-        writeStore(sessionId, "config", configFromToken!);
+        writeServerConfig(sessionId, configFromToken!);
         if (configs("external_api_enabled") !== "true") {
           return sendError(res, "", "API is currently disabled.", 503);
         }
@@ -71,28 +68,6 @@ export default async function handler(
     return sendError(res, "", "Incorrect type");
   }
 }
-
-const validateRequest = (sessionId: string, req: NextApiRequest, res: NextApiResponse) => {
-  // Check if JWT_SECRET is defined
-  if (!JWT_SECRET) {
-    return sendError(res, sessionId, "JWT Secret isn't defined", 500);
-  }
-
-  // Check for JWT token in the Authorization header
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.split(" ")[1];
-  if (!token) {
-    return sendError(res, sessionId, "No JWT token provided", 401);
-  }
-
-  // Verify the JWT token
-  try {
-    const decoded = verifyConfigJWT(token);
-    return decoded;
-  } catch {
-    return sendError(res, sessionId, "Invalid JWT token", 401);
-  }
-};
 
 async function handleRequest(
   sessionId: string,

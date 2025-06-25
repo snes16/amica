@@ -1,5 +1,5 @@
 import { NextApiRequest } from "next";
-import { sendToClients } from "./apiHelper";
+import { addClientEvents } from "../externalAPI";
 
 export const handleSocialMediaActions = async (
   sessionId: string,
@@ -25,7 +25,7 @@ export const handleSocialMediaActions = async (
       return;
     }
     case "none":
-      sendToClients(sessionId, req, { type: "normal", data: message });
+      addClientEvents(sessionId, "normal", message);
       return "Broadcasted to clients";
     default:
       throw new Error("No action taken for social media.");

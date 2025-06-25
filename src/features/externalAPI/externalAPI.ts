@@ -1,157 +1,102 @@
-import { config, defaults, prefixed, updateConfig } from "@/utils/config";
-import {
-  MAX_STORAGE_TOKENS,
-  TimestampedPrompt,
-} from "../amicaLife/eventHandler";
-import { Message } from "../chat/messages";
-import { writeStore } from "./memoryStore";
+import { config, defaults, prefixed } from "@/utils/config";
 import { randomBytes } from "crypto";
+import { Message } from "../chat/messages";
+import { TimestampedPrompt } from "../amicaLife/eventHandler";
+import { psvSupabase } from "@/utils/supabase";
 
-export const issueJWT = `/api/jwt`;
-export const configUrl = `/api/dataHandler?type=config`;
-export const userInputUrl = `/api/dataHandler?type=userInputMessages`;
-export const subconsciousUrl = `/api/dataHandler?type=subconscious`;
-export const logsUrl = `/api/dataHandler?type=logs`;
-export const chatLogsUrl = `/api/dataHandler?type=chatLogs`;
+const SCHEMA = "external-api";
+const TABLES = ["configs", "user_input_messages", "chat_logs", "subconscious", "logs", "events"];
 
-const generateSessionId = (sessionId?: string): string =>
+export const generateSessionId = (sessionId?: string): string =>
   sessionId || randomBytes(8).toString("hex");
 
-export async function fetcher(method: string, url: URL | string, data?: any) {
-  switch (method) {
-    case "POST":
-      try {
-        await fetch(url, {
-          method: method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
-      } catch (error) {
-        console.error("Failed to POST server config: ", error);
-      }
-      break;
+// Unified upsert helper
+async function upsertToTable(table: string, payload: Record<string, any>) {
+  if (config("external_api_enabled") !== "true") return;
 
-    default:
-      break;
+  const { error } = await psvSupabase
+    .schema(SCHEMA)
+    .from(table)
+    .upsert(payload);
+
+  if (error) {
+    console.error(`Supabase upsert error in table "${table}":`, error.message);
+    return null;
   }
 }
 
-export async function handleConfig(
-  type: string,
-  data?: Record<string, string>,
-  sessionId?: string,
-) {
-  switch (type) {
-    // Call this function at the beginning of your application to load the server config and sync to localStorage if needed.
-    case "init":
-      let localStorageData: Record<string, string> = {};
-
-      for (const key in defaults) {
-        const localKey = prefixed(key);
-        const value = localStorage.getItem(localKey);
-
-        if (value !== null) {
-          localStorageData[key] = value;
-        } else {
-          // Append missing keys with default values
-          localStorageData[key] = (<any>defaults)[key];
-        }
-      }
-
-      // Sync update to server config
-      const id = generateSessionId();
-      localStorage.setItem(prefixed("session_id"), id);
-      const response = await fetch(issueJWT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: id, config: localStorageData }),
-      });
-
-      let token: string = "";
-      if (response.ok) {
-        const json = await response.json();
-        if (json.token) {
-          token = json.token;
-        }
-      }
-
-      return token;
-
-    case "agent_route":
-      const agentRouteResponse = await fetch(issueJWT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sessionId!, config: data }),
-      });
-
-      updateConfig("session_id", sessionId!);
-      if (data) {
-        writeStore(sessionId!, "config", data);
-      }
-
-      let agentRouteToken: string = "";
-      if (agentRouteResponse.ok) {
-        const json = await agentRouteResponse.json();
-        if (json.token) {
-          agentRouteToken = json.token;
-        }
-      }
-
-      return agentRouteToken;
-
-    case "update":
-      await fetcher("POST", `${configUrl}&sessionId=${config('session_id')}`, data);
-      break;
-
-    default:
-      break;
+// Individual handlers
+export async function handleConfig(agentRoute: boolean = false, configs?: Record<string,string>) {
+  const sessionId = generateSessionId();
+  let data: Record<string, string> = {};
+  if (!agentRoute) {
+    for (const key in defaults) {
+      const localKey = prefixed(key);
+      data[key] = localStorage.getItem(localKey) ?? (defaults as any)[key];
+    }
+  } else {
+    if (configs) {
+      data = configs;
+    }
   }
+
+  await upsertToTable("configs", { session_id: sessionId, data });
+  return sessionId;
 }
 
-export async function handleUserInput(message: string) {
-  if (config("external_api_enabled") !== "true") {
-    return;
-  }
-
-  fetch(`${userInputUrl}&sessionId=${config('session_id')}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      systemPrompt: config("system_prompt"),
-      message: message,
-    }),
+export async function handleUserInput(messages: Message[]) {
+  await upsertToTable("user_input_messages", {
+    session_id: config("session_id"),
+    data: messages,
   });
 }
 
 export async function handleChatLogs(messages: Message[]) {
-  if (config("external_api_enabled") !== "true") {
-    return;
-  }
-
-  fetch(`${chatLogsUrl}&sessionId=${config('session_id')}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(messages),
+  await upsertToTable("chat_logs", {
+    session_id: config("session_id"),
+    data: messages,
   });
 }
 
-export async function handleSubconscious(
-  sessionId: string,
-  timestampedPrompt: TimestampedPrompt,
-) {
-  if (config("external_api_enabled") !== "true") {
-    return;
-  }
-
-  const response = await fetch(`${subconsciousUrl}&sessionId=${sessionId}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(timestampedPrompt),
+export async function handleSubconscious(sessionId: string, data: TimestampedPrompt[]) {
+  await upsertToTable("subconscious", {
+    session_id: sessionId,
+    data,
   });
+}
 
-  if (!response.ok) {
-    throw new Error("Failed to update subconscious data");
+export async function handleLogs(sessionId: string, logs: any[]) {
+  await upsertToTable("logs", {
+    session_id: sessionId,
+    data: logs,
+  });
+}
+
+export async function addClientEvents(sessionId: string, type: string, data: string) {
+  await psvSupabase
+    .schema(SCHEMA)
+    .from("events")
+    .insert({ session_id: sessionId, type, data });
+}
+
+// 🔥 New: Delete all rows for a session across all tables
+export async function deleteAllSessionData(sessionId: string) {
+  if (config("external_api_enabled") !== "true") return;
+
+  const errors = [];
+
+  for (const table of TABLES) {
+    const { error } = await psvSupabase
+      .schema(SCHEMA)
+      .from(table)
+      .delete()
+      .eq("session_id", sessionId);
+
+    if (error) {
+      console.error(`Failed to delete from "${table}" for session ${sessionId}:`, error.message);
+      errors.push({ table, error });
+    }
   }
+
+  return errors.length ? { success: false, errors } : { success: true };
 }

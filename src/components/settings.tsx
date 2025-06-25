@@ -162,7 +162,6 @@ export const Settings = ({
   const [idleTextPrompt, setIdleTextPrompt] = useState(config("idle_text_prompt"));
 
   const [externalApiEnabled,setExternalApiEnabled] = useState<boolean>(config("external_api_enabled") === 'true' ? true : false);
-  const [jwtOutdated,setJwtOutdated] = useState<boolean>(config("jwt_outdated") === 'true' ? true : false);
   const [xApiKey, setXApiKey] = useState(config("x_api_key"));
   const [xApiSecret, setXAPISecret] = useState(config("x_api_secret"));
   const [xAccessToken, setXAcessToken] = useState(config("x_access_token"));
@@ -247,8 +246,6 @@ export const Settings = ({
   useEffect(() => {
     const timeOutId = setTimeout(() => {
       if (settingsUpdated) {
-        setJwtOutdated(true)
-        updateConfig("jwt_outdated", "true");
         setShowNotification(true);
         setTimeout(() => {
           setShowNotification(false);
@@ -643,7 +640,6 @@ export const Settings = ({
     case 'external_api':
       return <ExternalAPIPage
         externalApiEnabled={externalApiEnabled}
-        jwtOutdated={jwtOutdated}
         xApiKey={xApiKey}
         xApiSecret={xApiSecret}
         xAccessToken={xAccessToken}
@@ -652,7 +648,6 @@ export const Settings = ({
         telegramBotToken={telegramBotToken}
         telegramChatId={telegramChatId}
         setExternalApiEnabled={setExternalApiEnabled}
-        setJwtOutdated={setJwtOutdated}
         setXAPIKey={setXApiKey}
         setXAPISecret={setXAPISecret}
         setXAccessToken={setXAcessToken}

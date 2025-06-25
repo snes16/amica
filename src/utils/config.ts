@@ -1,5 +1,5 @@
 import { handleConfig } from "@/features/externalAPI/externalAPI";
-import { readStore } from "@/features/externalAPI/memoryStore";
+import { readServerConfig, readStore, updateStore } from "@/features/externalAPI/memoryStore";
 import { isAgentRoute } from "./agentUtils";
 
 export const defaults = {
@@ -81,7 +81,6 @@ export const defaults = {
   coqui_voice_id: process.env.NEXT_PUBLIC_COQUI_VOICEID ?? "71c6c3eb-98ca-4a05-8d6b-f8c2b5f9f3a3",
   external_api_enabled: process.env.NEXT_PUBLIC_EXTERNAL_API_ENABLED ?? "false",
   session_id: "",
-  jwt_outdated: "",
   x_api_key: process.env.NEXT_PUBLIC_X_API_KEY ?? "",
   x_api_secret: process.env.NEXT_PUBLIC_X_API_SECRET ?? "",
   x_access_token: process.env.NEXT_PUBLIC_X_ACCESS_TOKEN ?? "",
@@ -115,26 +114,24 @@ Here are some examples to guide your responses:
 Remember, each message you provide should be coherent and reflect the complexity of your thoughts combined with your emotional unpredictability. Let’s engage in a conversation that's as intellectually stimulating as it is emotionally dynamic!`,
 };
 
+let agentCacheStorage: Record<string, string> = {};
+
 export function prefixed(key: string) {
   return `chatvrm_${key}`;
 }
 
-if (typeof window !== "undefined") {
-  (async () => {
-    if (!isAgentRoute()) {
-      const token = await handleConfig("init");
-      localStorage.setItem(prefixed("jwt_token"), token!);
-      localStorage.setItem(prefixed("jwt_outdated"), "false");
-    }
-  })();
+export function syncAgentConfig(data: Record<string, string>) {
+  Object.entries(data).forEach(([key, value]) => {
+    agentCacheStorage[key] = value as string ?? ''; 
+  });
 }
 
 export function config(key: string): string {
   if (typeof localStorage !== "undefined") {
     if (isAgentRoute()) {
-      const sessionId = (<any>localStorage).getItem(prefixed("session_id"));
-      const agentConfig = readStore(sessionId!, "config");
-      return agentConfig[key];
+      if (agentCacheStorage.hasOwnProperty(key)) {
+        return agentCacheStorage[key];
+      }
     }
     if (localStorage.hasOwnProperty(prefixed(key))) {
       return (<any>localStorage).getItem(prefixed(key))!;
@@ -152,7 +149,7 @@ export function config(key: string): string {
     } catch (err) {
       console.warn("Could not load server session ID:", err);
     }
-    const serverConfig = readStore(sessionId!, "config");
+    const serverConfig = readServerConfig(sessionId!);
     if (serverConfig && serverConfig.hasOwnProperty(key)) {
       return serverConfig[key];
     }
@@ -175,7 +172,9 @@ export async function updateConfig(key: string, value: string) {
     }
 
     // Sync update to server config
-    await handleConfig("update", { key, value });
+    if (config("external_api_enabled") === "true") {
+      await updateStore(config("session_id"), "configs", { [key]: value });
+    }
   } catch (e) {
     console.error(`Config "${key}" not found: ${e}`);
   }

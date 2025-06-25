@@ -4,7 +4,6 @@ import { config } from "@/utils/config";
 import { handleSubconscious } from "@/features/externalAPI/externalAPI";
 
 import {
-  generateSessionId,
   sendError,
   apiLogEntry,
   ApiResponse,
@@ -17,29 +16,17 @@ import {
 import {
   readStore,
   updateStore,
-  writeStore,
+  writeServerConfig,
 } from "@/features/externalAPI/memoryStore";
 import { runWithServerContext } from "@/features/externalAPI/serverContext";
-import { verifyConfigJWT } from "@/features/externalAPI/jwt";
 
 export const apiLogs: apiLogEntry[] = [];
-export const sseClients: Record<string, Array<{ res: NextApiResponse }>> = {};
-
-const JWT_SECRET = process.env.NEXT_PUBLIC_JWT_SECRET as string;
 
 // Main Amica Handler
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse>,
 ) {
-  if (req.method === "GET") {
-    const sessionId = req.query.sessionId as string;
-    if (!sessionId) {
-      return sendError(res, "", "sessionId is required", 400);
-    }
-    handleSSEConnection(req, res, sessionId);
-    return;
-  }
   const { sessionId, inputType, payload, noProcessChat = false } = req.body;
   return runWithServerContext({ sessionId }, async () => {
     const timestamp = new Date().toISOString();
@@ -53,8 +40,8 @@ export default async function handler(
     }
 
     // Apply the config globally for the request
-    const configFromToken = validateRequest(sessionId, req, res);
-    writeStore(sessionId, "config", configFromToken!);
+    const configs = await readStore(sessionId, "configs");
+    writeServerConfig(sessionId, configs);
 
     if (config("external_api_enabled") !== "true") {
       return sendError(res, sessionId, "API is currently disabled.", 503);
@@ -92,32 +79,6 @@ export default async function handler(
   });
 }
 
-const validateRequest = (
-  sessionId: string,
-  req: NextApiRequest,
-  res: NextApiResponse,
-) => {
-  // Check if JWT_SECRET is defined
-  if (!JWT_SECRET) {
-    return sendError(res, sessionId, "JWT Secret isn't defined", 500);
-  }
-
-  // Check for JWT token in the Authorization header
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.split(" ")[1];
-  if (!token) {
-    return sendError(res, sessionId, "No JWT token provided", 401);
-  }
-
-  // Verify the JWT token
-  try {
-    const decoded = verifyConfigJWT(token);
-    return decoded;
-  } catch {
-    return sendError(res, sessionId, "Invalid JWT token", 401);
-  }
-};
-
 const processRequest = async (
   req: NextApiRequest,
   sessionId: string,
@@ -129,29 +90,29 @@ const processRequest = async (
       return { response: await processNormalChat(payload), outputType: "Chat" };
     case "Memory Request":
       return {
-        response: readStore(sessionId, "subconscious"),
+        response: await readStore(sessionId, "subconscious"),
         outputType: "Memory",
       };
     case "RPC Logs":
-      return { response: readStore(sessionId, "logs"), outputType: "Logs" };
+      return { response: await readStore(sessionId, "logs"), outputType: "Logs" };
     case "RPC User Input Messages":
       return {
-        response: readStore(sessionId, "userInputMessages"),
+        response: await readStore(sessionId, "user_input_messages"),
         outputType: "User Input",
       };
     case "Update System Prompt":
       return {
-        response: await updateSystemPrompt(sessionId, req, payload),
+        response: await updateSystemPrompt(sessionId, payload),
         outputType: "Updated system prompt",
       };
     case "Brain Message":
       return {
-        response: updateStore(sessionId, "subconscious", payload),
+        response: await updateStore(sessionId, "subconscious", payload),
         outputType: "Added subconscious stored prompt",
       };
     case "Chat History":
       return {
-        response: readStore(sessionId, "chatLogs"),
+        response: await readStore(sessionId, "chat_logs"),
         outputType: "Chat History",
       };
     case "Reasoning Server":
@@ -164,31 +125,3 @@ const processRequest = async (
   }
 };
 
-// Sub-functions
-const handleSSEConnection = (
-  req: NextApiRequest,
-  res: NextApiResponse,
-  sessionId: string,
-): void => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("X-Accel-Buffering", "no");
-  res.setHeader("Connection", "keep-alive");
-
-  if (!sseClients[sessionId]) {
-    sseClients[sessionId] = [];
-  }
-
-  sseClients[sessionId].push({ res });
-
-  req.on("close", () => {
-    console.log(`Client from session ${sessionId} disconnected`);
-    sseClients[sessionId] = sseClients[sessionId].filter(
-      (client) => client.res !== res,
-    );
-    if (sseClients[sessionId].length === 0) {
-      delete sseClients[sessionId];
-    }
-    res.end();
-  });
-};

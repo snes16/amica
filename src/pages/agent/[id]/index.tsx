@@ -50,7 +50,7 @@ import { Message, Role } from "@/features/chat/messages";
 import { ChatContext } from "@/features/chat/chatContext";
 import { AlertContext } from "@/features/alert/alertContext";
 
-import { config, defaults, updateConfig } from '@/utils/config';
+import { config, defaults, syncAgentConfig, updateConfig } from '@/utils/config';
 import { isTauri } from '@/utils/isTauri';
 import { langs } from '@/i18n/langs';
 import { VrmStoreProvider } from "@/features/vrmStore/vrmStoreContext";
@@ -65,8 +65,9 @@ import { Contract, JsonRpcProvider } from 'ethers';
 import { abi } from "@/utils/abi";
 import { decodeAgentId, encodeAgentId } from "@/utils/fileUtils";
 import { DiagnosisScript } from "@/components/diagnosisScript";
-import { handleConfig } from "@/features/externalAPI/externalAPI";
+import { deleteAllSessionData, handleConfig } from "@/features/externalAPI/externalAPI";
 import { randomBytes } from "crypto";
+import { useFullUnmountHandler } from "@/hooks/useUnmountHandler";
 
 const m_plus_2 = M_PLUS_2({
   variable: "--font-m-plus-2",
@@ -91,7 +92,6 @@ export default function Agent() {
   const { chat: bot } = useContext(ChatContext);
   const { amicaLife: amicaLife } = useContext(AmicaLifeContext);
 
-  const [jwtToken, setJwtToken] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [jwtCopied, setJwtCopied] = useState(false);
   const [sessionIdCopied, setSessionIdCopied] = useState(false);
@@ -215,15 +215,14 @@ export default function Agent() {
         }
 
         // Sync agent configuration
-        const sessionId = generateSessionId();
-        configs.session_id = sessionId;
-        const jwtToken = await handleConfig("agent_route", configs, sessionId);
         if (configs.external_api_enabled === 'true') {
-          setSessionId(sessionId);
-          setJwtToken(jwtToken ?? "");
+          const sessionId = await handleConfig(true, configs);
+          setSessionId(sessionId!);
+          bot.initRealtime();
         }
 
-        bot.initSSE();
+        // Sync agent configuration
+        syncAgentConfig(configs);
 
         // Set loaded state after all is done
         setLoaded(true);
@@ -236,6 +235,11 @@ export default function Agent() {
     processCharacterData();
 
   }, [agentData, loaded]);
+
+  useFullUnmountHandler(() => {
+    deleteAllSessionData(sessionId);
+    console.log("Page/component fully unmounted or about to unload");
+  });
 
   function toggleTTSMute() {
     updateConfig('tts_muted', config('tts_muted') === 'true' ? 'false' : 'true')
@@ -261,14 +265,6 @@ export default function Agent() {
   const toggleDiagnosis = () => {
     toggleState(setShowDiagnosis, [setShowChatLog, setShowChatMode]);
   };
-
-  function handleCopyJWT() {
-    navigator.clipboard.writeText(jwtToken).then(() => {
-      setJwtCopied(true);
-      setShowNotification(true);
-      setTimeout(() => { setJwtCopied(false); setShowNotification(false); }, 4000);
-    });
-  }
 
   function handleCopySessionId() {
     navigator.clipboard.writeText(sessionId).then(() => {
@@ -476,7 +472,7 @@ export default function Agent() {
             </div>
 
             {/* JWT Copied */}
-            {config("external_api_enabled") === 'true' && jwtToken && sessionId && (
+            {config("external_api_enabled") === 'true' && sessionId && (
               <Menu as="div" className="relative inline-block text-left">
                 <div>
                   <Menu.Button className="flex items-center justify-center w-full">
@@ -505,19 +501,6 @@ export default function Agent() {
                 >
                   <Menu.Items className="absolute left-0 mt-2 w-48 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
                     <div className="py-1">
-                      <Menu.Item>
-                        {({ active }) => (
-                          <button
-                            onClick={handleCopyJWT}
-                            className={clsx(
-                              active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
-                              'block w-full text-left px-4 py-2 text-sm'
-                            )}
-                          >
-                            Copy JWT Token
-                          </button>
-                        )}
-                      </Menu.Item>
                       <Menu.Item>
                         {({ active }) => (
                           <button

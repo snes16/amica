@@ -6,13 +6,11 @@ import { SwitchBox } from "@/components/switchBox"
 import { IconButton } from '../iconButton';
 import { useContext, useEffect, useState } from 'react';
 import { ChatContext } from '@/features/chat/chatContext';
-import { handleConfig } from '@/features/externalAPI/externalAPI';
+import { deleteAllSessionData, handleConfig } from '@/features/externalAPI/externalAPI';
 import { SecretTextInput } from '../secretTextInput';
-import { generateSessionId } from '@/features/externalAPI/utils/apiHelper';
 
 export function ExternalAPIPage({
     externalApiEnabled,
-    jwtOutdated,
     xApiKey,
     xApiSecret,
     xAccessToken,
@@ -21,7 +19,6 @@ export function ExternalAPIPage({
     telegramBotToken,
     telegramChatId,
     setExternalApiEnabled,
-    setJwtOutdated,
     setXAPIKey,
     setXAPISecret,
     setXAccessToken,
@@ -32,7 +29,6 @@ export function ExternalAPIPage({
     setSettingsUpdated,
 }: {
     externalApiEnabled: boolean;
-    jwtOutdated: boolean;
     xApiKey: string;
     xApiSecret: string;
     xAccessToken: string;
@@ -41,7 +37,6 @@ export function ExternalAPIPage({
     telegramBotToken: string;
     telegramChatId: string;
     setExternalApiEnabled: (amicaLifeEnabled: boolean) => void;
-    setJwtOutdated: (jwtOutdated: boolean) => void;
     setXAPIKey: (key: string) => void;
     setXAPISecret: (secret: string) => void;
     setXAccessToken: (token: string) => void;
@@ -54,24 +49,35 @@ export function ExternalAPIPage({
 
     const { t } = useTranslation();
     const { chat: bot } = useContext(ChatContext);
-    const [jwtToken, setJwtToken] = useState(localStorage.getItem(prefixed("jwt_token")))
     const [sessionId, setSessionId] = useState(localStorage.getItem(prefixed("session_id")))
 
     useEffect(() => {
         if (externalApiEnabled === true) {
-            bot.initSSE();
+            bot.initRealtime();
         } else {
-            bot.closeSSE();
+            bot.closeRealtime();
         }
     }, [externalApiEnabled]);
 
+    useEffect(() => {
+        async function fetchSessionId() {
+            if (externalApiEnabled === true && !sessionId && sessionId?.trim() == "") {
+                const sessionId = await handleConfig();
+                setSessionId(sessionId);
+                localStorage.setItem(prefixed("session_id"), sessionId!);
+            }
+        }
+        fetchSessionId();
+    }, []);
+
     const handleRefreshJwtToken = async () => {
-        const token = await handleConfig("init");
-        setJwtToken(token!);
-        setSessionId(config("session_id"));
-        localStorage.setItem(prefixed("jwt_token"), token!);
-        setJwtOutdated(false);
-        updateConfig("jwt_outdated", "false");
+        if (sessionId) {
+            await deleteAllSessionData(sessionId);
+        }
+        const sessionID = await handleConfig();
+        setSessionId(sessionID);
+        localStorage.setItem(prefixed("session_id"), sessionID!);
+        bot.initRealtime();
     }
 
     return (
@@ -79,9 +85,9 @@ export function ExternalAPIPage({
             title={`${t("External API")} ${t("Settings")}`}
             description={`${t("Enables")} ${t("Only in development mode")}`}
         >
-            {jwtOutdated && (
+            {(
                 <NotUsingAlert>
-                    Your settings have been updated. Refresh the config jwt token or current settings will not be used.
+                    External API currently in develop.
                 </NotUsingAlert>
             )}
             <ul role="list" className="divide-y divide-gray-100 max-w-xs">
@@ -114,28 +120,10 @@ export function ExternalAPIPage({
                                             navigator.clipboard.writeText(e.target.value);
                                         }}
                                     />
-                                </div>
-                            </FormRow>
-                        </li>
-
-                        <li className="py-4">
-                            <FormRow label={t("Config JWT Token")}>
-                                <div className="flex items-center space-x-4">
-                                    <input
-                                        type="text"
-                                        className="inline-flex items-center px-2 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-fuchsia-600 bg-fuchsia-100 hover:bg-fuchsia-200 focus:outline-transparent focus:border-transparent disabled:opacity-50 disabled:hover:bg-fuchsia-50 disabled:cursor-not-allowed hover:cursor-copy"
-                                        value={jwtToken ?? "No token generated"}
-                                        readOnly
-                                        onClick={(e) => {
-                                            // @ts-ignore
-                                            navigator.clipboard.writeText(e.target.value);
-                                        }}
-                                    />
                                     <IconButton
                                         iconName="24/Reload"
-                                        label={!jwtOutdated ? "Synced" : "Refresh"}
+                                        label={"Refresh"}
                                         isProcessing={false}
-                                        disabled={!jwtOutdated}
                                         className="block h-9 w-auto rounded-md border-0 py-1.5 px-4 bg-secondary hover:bg-secondary-hover active:bg-secondary-active text-sm text-white ring-1 ring-inset ring-gray-300 sm:text-sm sm:leading-6"
                                         onClick={handleRefreshJwtToken}
                                     ></IconButton>

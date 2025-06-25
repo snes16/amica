@@ -203,15 +203,6 @@ export async function handleSubconsciousEvent(
       timestamp: new Date().toISOString(),
     };
 
-    if (config("external_api_enabled") === "true") {
-      try {
-        const sessionId = config("session_id");
-        await handleSubconscious(sessionId, timestampedPrompt);
-      } catch (error) {
-        console.error("Error handling external API:", error);
-      }
-    } 
-
     // External API feature
     storedSubconcious.push(timestampedPrompt);
     let totalStorageTokens = storedSubconcious.reduce(
@@ -222,6 +213,15 @@ export async function handleSubconsciousEvent(
       const removed = storedSubconcious.shift();
       totalStorageTokens -= removed!.prompt.length;
     }
+
+    if (config("external_api_enabled") === "true") {
+      try {
+        const sessionId = config("session_id");
+        await handleSubconscious(sessionId, storedSubconcious);
+      } catch (error) {
+        console.error("Error handling external API:", error);
+      }
+    } 
 
     console.log("Stored subconcious prompts:", storedPrompts);
     amicaLife.setSubconciousLogs!(storedPrompts);
