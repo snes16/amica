@@ -44,9 +44,6 @@ export type TimestampedPrompt = {
   timestamp: string;
 };
 
-// Placeholder for storing compressed subconscious prompts
-export let storedPrompts: TimestampedPrompt[] = [];
-
 let previousAnimation = "";
 
 // Handles the VRM animation event.
@@ -223,8 +220,8 @@ export async function handleSubconsciousEvent(
       }
     } 
 
-    console.log("Stored subconcious prompts:", storedPrompts);
-    amicaLife.setSubconciousLogs!(storedPrompts);
+    console.log("Stored subconcious prompts:", storedSubconcious);
+    amicaLife.setSubconciousLogs!(storedSubconcious);
 
     amicaLife.eventProcessing = false;
     console.timeEnd(`processing_event Subconcious`);
