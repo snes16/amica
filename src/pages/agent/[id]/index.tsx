@@ -2,6 +2,7 @@ import {
   Fragment,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import Link from "next/link";
@@ -23,6 +24,10 @@ import {
   WrenchScrewdriverIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
+  ClipboardDocumentCheckIcon,
+  ClipboardIcon,
+  CheckCircleIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { IconBrain } from '@tabler/icons-react';
 
@@ -60,6 +65,9 @@ import { Contract, JsonRpcProvider } from 'ethers';
 import { abi } from "@/utils/abi";
 import { decodeAgentId, encodeAgentId } from "@/utils/fileUtils";
 import { DiagnosisScript } from "@/components/diagnosisScript";
+import { deleteAllSessionData, handleChatLogs, handleConfig } from "@/features/externalAPI/externalAPI";
+import { randomBytes } from "crypto";
+import { useFullUnmountHandler } from "@/hooks/useUnmountHandler";
 
 const m_plus_2 = M_PLUS_2({
   variable: "--font-m-plus-2",
@@ -79,10 +87,10 @@ const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS as `0x${st
 export default function Agent() {
   const { t, i18n } = useTranslation();
   const currLang = i18n.resolvedLanguage;
-  const { viewer } = useContext(ViewerContext);
-  const { alert } = useContext(AlertContext);
-  const { chat: bot } = useContext(ChatContext);
-  const { amicaLife: amicaLife } = useContext(AmicaLifeContext);
+
+  const [sessionId, setSessionId] = useState("");
+  const [jwtCopied, setJwtCopied] = useState(false);
+  const [sessionIdCopied, setSessionIdCopied] = useState(false);
 
   const [chatSpeaking, setChatSpeaking] = useState(false);
   const [chatProcessing, setChatProcessing] = useState(false);
@@ -96,6 +104,7 @@ export default function Agent() {
   // otherwise issues from usage of localStorage and window will occur
   const [showContent, setShowContent] = useState(false);
 
+  const [showNotification, setShowNotification] = useState(false);
   const [showChatLog, setShowChatLog] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [showChatMode, setShowChatMode] = useState(false);
@@ -107,9 +116,9 @@ export default function Agent() {
   const [muted, setMuted] = useState<boolean | null>(null);
   const [webcamEnabled, setWebcamEnabled] = useState(false);
 
-
   const router = useRouter()
   const [error, setError] = useState(false);
+  const hasProcessedRef = useRef(false);
   const [loaded, setLoaded] = useState(false);
 
   const provider = new JsonRpcProvider(process.env.NEXT_PUBLIC_INFURA_RPC);
@@ -134,6 +143,9 @@ export default function Agent() {
   ];
 
   const [agentData, setAgentData] = useState<string[] | null>(null);
+
+  const generateSessionId = (sessionId?: string): string =>
+    sessionId || randomBytes(8).toString("hex");
 
   useEffect(() => {
     async function fetchNFTMetadata() {
@@ -161,11 +173,9 @@ export default function Agent() {
 
   useEffect(() => {
     async function processCharacterData() {
-      if (isNaN(tokenId) || !agentData) {
-        setError(true);
-        return;
-      }
+      if (!agentData || loaded || hasProcessedRef.current) return;
 
+      hasProcessedRef.current = true; // lock future calls
       console.log("Process agent data")
 
 
@@ -194,12 +204,19 @@ export default function Agent() {
           document.body.style.backgroundColor = configs.bg_color;
         } else if (configs.bg_url) {
           document.body.style.backgroundImage = `url(${configs.bg_url})`;
-        } 
+        }
         if (configs.brain) {
           setShowBrain(true);
           setBrainLink(configs.brain);
         }
 
+        // Sync agent configuration
+        if (configs.external_api_enabled === 'true') {
+          const sessionId = await handleConfig(true, configs);
+          configs.session_id = sessionId;
+          setSessionId(sessionId!);
+          // bot.initRealtime();
+        } 
         // Sync agent configuration
         syncAgentConfig(configs);
 
@@ -213,7 +230,12 @@ export default function Agent() {
 
     processCharacterData();
 
-  }, [agentData, tokenId, keysList, loaded]);
+  }, [agentData, loaded]);
+
+  useFullUnmountHandler(() => {
+    deleteAllSessionData(sessionId);
+    console.log("Page/component fully unmounted or about to unload");
+  });
 
   function toggleTTSMute() {
     updateConfig('tts_muted', config('tts_muted') === 'true' ? 'false' : 'true')
@@ -240,7 +262,20 @@ export default function Agent() {
     toggleState(setShowDiagnosis, [setShowChatLog, setShowChatMode]);
   };
 
+  function handleCopySessionId() {
+    navigator.clipboard.writeText(sessionId).then(() => {
+      setSessionIdCopied(true);
+      setShowNotification(true);
+      setTimeout(() => { setSessionIdCopied(false); setShowNotification(false); }, 4000);
+    });
+  }
+
+  const { viewer } = useContext(ViewerContext);
+  const { alert } = useContext(AlertContext);
+  const { chat: bot } = useContext(ChatContext);
+  const { amicaLife: amicaLife } = useContext(AmicaLifeContext);
   useEffect(() => {
+    if (!loaded) return ;
     bot.initialize(
       amicaLife,
       viewer,
@@ -258,16 +293,21 @@ export default function Agent() {
     if (config("tts_backend") === 'openai') {
       updateConfig("tts_backend", "openai_tts");
     }
-  }, [bot, viewer]);
+  }, [loaded]);
 
   useEffect(() => {
+    if (!loaded) return ;
     amicaLife.initialize(
       viewer,
       bot,
       setSubconciousLogs,
       chatSpeaking,
     );
-  }, [amicaLife, bot, viewer]);
+  }, [loaded]);
+
+  useEffect(() => {
+    handleChatLogs(chatLog);
+  }, [chatLog]);
 
   // this exists to prevent build errors with ssr
   useEffect(() => setShowContent(true), []);
@@ -303,6 +343,52 @@ export default function Agent() {
       </VrmStoreProvider>
 
       <MessageInputContainer isChatProcessing={chatProcessing} />
+
+      {/* Notification Alert */}
+      <div
+        aria-live="assertive"
+        className="pointer-events-none fixed inset-0 flex items-end px-4 py-6 sm:items-start sm:p-6 mt-2"
+      >
+        <div className="flex w-full flex-col items-center space-y-4 sm:items-end">
+
+          <Transition
+            show={showNotification}
+            as={Fragment}
+            enter="transform ease-out duration-300 transition"
+            enterFrom="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+            enterTo="translate-y-0 opacity-100 sm:translate-x-0"
+            leave="transition ease-in duration-100"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+              <div className="p-4">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <CheckCircleIcon className="h-6 w-6 text-green-400" aria-hidden="true" />
+                  </div>
+                  <div className="ml-3 w-0 flex-1 pt-0.5">
+                    <p className="text-sm font-medium text-gray-900">{`${jwtCopied ? 'JWT' : 'Session ID'} Copied!`}</p>
+                    <p className="mt-1 text-sm text-gray-500">{`Your ${jwtCopied ? 'JWT' : 'Session ID'} was copied successfully.`}</p>
+                  </div>
+                  <div className="ml-4 flex flex-shrink-0">
+                    <button
+                      type="button"
+                      className="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                      onClick={() => {
+                        setShowNotification(false)
+                      }}
+                    >
+                      <span className="sr-only">Close</span>
+                      <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </div>
 
       {/* main menu */}
       <div className="absolute z-10 m-2">
@@ -389,6 +475,56 @@ export default function Agent() {
               )}
               <span className="text-white hidden">Diagnosis Script</span>
             </div>
+
+            {/* JWT Copied */}
+            {config("external_api_enabled") === 'true' && sessionId && (
+              <Menu as="div" className="relative inline-block text-left">
+                <div>
+                  <Menu.Button className="flex items-center justify-center w-full">
+                    {jwtCopied || sessionIdCopied ? (
+                      <ClipboardDocumentCheckIcon
+                        className="h-7 w-7 text-green-400 opacity-100"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <ClipboardIcon
+                        className="h-7 w-7 text-white opacity-50 hover:opacity-100 active:opacity-100 hover:cursor-pointer"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </Menu.Button>
+                </div>
+
+                <Transition
+                  as={Fragment}
+                  enter="transition ease-out duration-100"
+                  enterFrom="transform opacity-0 scale-95"
+                  enterTo="transform opacity-100 scale-100"
+                  leave="transition ease-in duration-75"
+                  leaveFrom="transform opacity-100 scale-100"
+                  leaveTo="transform opacity-0 scale-95"
+                >
+                  <Menu.Items className="absolute left-0 mt-2 w-48 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                    <div className="py-1">
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={handleCopySessionId}
+                            className={clsx(
+                              active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
+                              'block w-full text-left px-4 py-2 text-sm'
+                            )}
+                          >
+                            Copy Session ID
+                          </button>
+                        )}
+                      </Menu.Item>
+                    </div>
+                  </Menu.Items>
+                </Transition>
+              </Menu>
+            )}
+
 
           </div>
         </div>

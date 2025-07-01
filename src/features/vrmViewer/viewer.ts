@@ -26,6 +26,9 @@ export class Viewer {
   private sendScreenshotToCallback: boolean;
   private screenshotCallback: BlobCallback | undefined;
 
+  private mediaRecorder?: MediaRecorder;
+  private recordedChunks: Blob[] = [];
+
   constructor() {
     this.isReady = false;
     this.sendScreenshotToCallback = false;
@@ -242,6 +245,48 @@ export class Viewer {
       return true;
     }
     return false;
+  }
+
+  // Method to start recording
+  public startRecording() {
+    if (!this._renderer) return;
+
+    // Create a stream from the renderer's canvas
+    const stream = this._renderer.domElement.captureStream(60); // 30 FPS
+    
+    // Higher quality and bit rate for better video clarity
+    const options = {
+      mimeType: 'video/webm;codecs=vp9',
+      videoBitsPerSecond: 8000000, // 8 Mbps for higher quality
+    };
+
+    this.mediaRecorder = new MediaRecorder(stream, options);
+
+    // Collect data in chunks
+    this.mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        this.recordedChunks.push(event.data);
+      }
+    };
+
+    // Start recording
+    this.mediaRecorder.start();
+  }
+
+
+  // Method to stop recording and trigger callback
+  public stopRecording(callback: BlobCallback) {
+    if (!this.mediaRecorder) return;
+
+    // Stop recording and create the video blob
+    this.mediaRecorder.onstop = () => {
+      const recordedBlob = new Blob(this.recordedChunks, { type: 'video/webm' });
+      callback(recordedBlob); // Pass the video blob to the callback
+      this.recordedChunks = []; // Clear chunks for the next recording
+    };
+
+    // Stop the recorder
+    this.mediaRecorder.stop();
   }
 
   public getScreenshotBlob = (callback: BlobCallback) => {

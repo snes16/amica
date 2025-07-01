@@ -20,12 +20,17 @@ import { localXTTSTTS} from "@/features/localXTTS/localXTTS";
 
 import { AmicaLife } from '@/features/amicaLife/amicaLife';
 
-import { config } from "@/utils/config";
+import { config, updateConfig } from "@/utils/config";
 import { cleanTalk } from "@/utils/cleanTalk";
 import { processResponse } from "@/utils/processResponse";
 import { wait } from "@/utils/wait";
 import { isCharacterIdle, characterIdleTime, resetIdleTimer } from "@/utils/isIdle";
 import { getOpenRouterChatResponseStream } from './openRouterChat';
+import { loadVRMAnimation } from '@/lib/VRMAnimation/loadVRMAnimation';
+import { handleLogs, handleUserInput } from '../externalAPI/externalAPI';
+import { isAgentRoute } from '@/utils/agentUtils';
+import { RealtimeChannel } from '@supabase/supabase-js';
+import { psvSupabase } from '@/utils/supabase';
 
 
 type Speak = {
@@ -76,6 +81,9 @@ export class Chat {
 
   public currentStreamIdx: number;
 
+  private realtimeChannel: RealtimeChannel | null = null
+  private logUploadInterval: NodeJS.Timeout | null = null;
+
   constructor() {
     this.initialized = false;
 
@@ -123,6 +131,8 @@ export class Chat {
 
     this.updateAwake();
     this.initialized = true;
+
+    this.initRealtime();
   }
 
   public setMessageList(messages: Message[]) {
@@ -334,6 +344,14 @@ export class Chat {
     if (!amicaLife) {
       console.log('receiveMessageFromUser', message);
 
+      if (config("external_api_enabled") === "true") {
+        await handleUserInput([
+          { role: "system", content: config("system_prompt") },
+          ...this.messageList!.filter(msg => msg.role === "user"),
+          { role: "user", content: message },
+        ]);
+      }
+
       this.amicaLife?.receiveMessageFromUser(message);
 
       if (!/\[.*?\]/.test(message)) {
@@ -355,6 +373,121 @@ export class Chat {
     await this.makeAndHandleStream(messages);
   }
 
+  public async initRealtime() {
+    if (config("external_api_enabled") !== "true") {
+      console.log("External API Disabled");
+      return;
+    }
+
+    const sessionId = config("session_id");
+
+    // Unsubscribe if already active
+    if (this.realtimeChannel) {
+      console.log("Closing existing Realtime channel...");
+      await psvSupabase.removeChannel(this.realtimeChannel);
+    }
+
+    this.startLogUpload();
+
+    // Subscribe to realtime events for this session
+    this.realtimeChannel = psvSupabase
+      .channel(`realtime:events:${sessionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "external-api",
+          table: "events",
+          filter: `session_id=eq.${sessionId}`,
+        },
+        async (payload: { new: { type: any; data: any; }; }) => {
+          const { type, data } = payload.new;
+          console.log("Realtime message received:", type, data);
+
+          switch (type) {
+            case "normal":
+              const messages: Message[] = [
+                { role: "system", content: config("system_prompt") },
+                ...this.messageList!,
+                { role: "user", content: data },
+              ];
+              const stream = await getEchoChatResponseStream(messages);
+              this.streams.push(stream);
+              this.handleChatResponseStream();
+              break;
+
+            case "animation":
+              const animation = await loadVRMAnimation(`/animations/${data}`);
+              if (!animation) throw new Error("Loading animation failed");
+              this.viewer?.model?.playAnimation(animation, data);
+              requestAnimationFrame(() => this.viewer?.resetCameraLerp());
+              break;
+
+            case "playback":
+              this.viewer?.startRecording();
+              setTimeout(() => {
+                this.viewer?.stopRecording((videoBlob) => {
+                  const url = URL.createObjectURL(videoBlob!);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "recording.webm";
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                });
+              }, Number(data));
+              break;
+
+            case "systemPrompt":
+              updateConfig("system_prompt", data);
+              break;
+
+            default:
+              console.warn("Unknown message type:", type);
+          }
+        }
+      )
+      .subscribe((status: any) => {
+        console.log(`Realtime subscription session id: ${sessionId} status:`, status);
+      });
+  }
+
+  public async closeRealtime() {
+    if (this.realtimeChannel) {
+      console.log("Closing existing Realtime channel...");
+      await psvSupabase.removeChannel(this.realtimeChannel);
+      this.realtimeChannel = null;
+    }
+
+    if (this.logUploadInterval) {
+      clearInterval(this.logUploadInterval);
+      this.logUploadInterval = null;
+    }
+  }
+
+  public async startLogUpload() {
+    if (typeof window === "undefined") return;
+
+    if (this.logUploadInterval) {
+      clearInterval(this.logUploadInterval);
+    }
+    
+    this.logUploadInterval = setInterval(async () => {
+      const logs = (window as any).error_handler_logs;
+      const sessionId = config("session_id");
+      const apiEnabled = config("external_api_enabled");
+
+      if (logs?.length && apiEnabled === "true" && sessionId) {
+        try {
+          const last50 = logs.slice(-20)
+          await handleLogs(sessionId, last50);
+        } catch (err) {
+          console.error("Unexpected error during log upload:", err);
+        }
+      }
+    }, 30_000); // every 30 seconds
+  }
 
   public async makeAndHandleStream(messages: Message[]) {
     try {

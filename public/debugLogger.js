@@ -9,11 +9,12 @@ if (typeof window !== "undefined") {
         }
 
         function logf() {
-          window.error_handler_logs.push({
+          const logEntry = {
             type: name,
-            ts: +new Date,
+            ts: +new Date(),
             arguments,
-          });
+          };
+          window.error_handler_logs.push(logEntry);
           passf.apply(null, arguments);
         }
 

@@ -67,6 +67,7 @@ import { SystemPromptPage } from './settings/SystemPromptPage';
 import { AmicaLifePage } from "./settings/AmicaLifePage";
 import { useVrmStoreContext } from "@/features/vrmStore/vrmStoreContext";
 import { OpenRouterSettings } from "./settings/OpenRouterSettingsPage";
+import { ExternalAPIPage } from "./settings/ExternalAPIPage";
 
 export const Settings = ({
   onClickClose,
@@ -159,6 +160,15 @@ export const Settings = ({
   const [maxTimeInterval, setMaxTimeInterval] = useState<number>(parseInt(config("max_time_interval_sec")));
   const [timeToSleep, setTimeToSleep] = useState<number>(parseInt(config("time_to_sleep_sec")));
   const [idleTextPrompt, setIdleTextPrompt] = useState(config("idle_text_prompt"));
+
+  const [externalApiEnabled,setExternalApiEnabled] = useState<boolean>(config("external_api_enabled") === 'true' ? true : false);
+  const [xApiKey, setXApiKey] = useState(config("x_api_key"));
+  const [xApiSecret, setXAPISecret] = useState(config("x_api_secret"));
+  const [xAccessToken, setXAcessToken] = useState(config("x_access_token"));
+  const [xAccessSecret, setXAccessSecret] = useState(config("x_access_secret"));
+  const [xBearerToken, setXBearerToken] = useState(config("x_bearer_token"));
+  const [telegramBotToken, setTelegramBotToken] = useState(config("telegram_bot_token"));
+  const [telegramChatId, setTelegramChatId] = useState(config("telegram_chat_id"));
 
   const [name, setName] = useState(config("name"));
   const [systemPrompt, setSystemPrompt] = useState(config("system_prompt"));
@@ -269,6 +279,7 @@ export const Settings = ({
     whisperOpenAIApiKey, whisperOpenAIModel, whisperOpenAIUrl,
     whisperCppUrl,
     amicaLifeEnabled, timeBeforeIdle, minTimeInterval, maxTimeInterval, timeToSleep, idleTextPrompt,
+    externalApiEnabled, xApiKey, xApiSecret, xAccessToken, xAccessSecret, xBearerToken, telegramBotToken, telegramChatId,
     name,
     systemPrompt,
     sttWakeWordEnabled, sttWakeWord,
@@ -284,7 +295,7 @@ export const Settings = ({
     switch(page) {
     case 'main_menu':
       return <MenuPage
-        keys={["appearance",  "amica_life", "chatbot", "tts", "stt", "vision", "reset_settings", "community"]}
+        keys={["appearance",  "amica_life", "chatbot", "tts", "stt", "vision","external_api" , "reset_settings", "community"]}
         menuClick={handleMenuClick} />;
 
     case 'appearance':
@@ -623,6 +634,27 @@ export const Settings = ({
         setMaxTimeInterval={setMaxTimeInterval}
         setTimeToSleep={setTimeToSleep}
         setIdleTextPrompt={setIdleTextPrompt}
+        setSettingsUpdated={setSettingsUpdated}
+        />
+
+    case 'external_api':
+      return <ExternalAPIPage
+        externalApiEnabled={externalApiEnabled}
+        xApiKey={xApiKey}
+        xApiSecret={xApiSecret}
+        xAccessToken={xAccessToken}
+        xAccessSecret={xAccessSecret}
+        xBearerToken={xBearerToken}
+        telegramBotToken={telegramBotToken}
+        telegramChatId={telegramChatId}
+        setExternalApiEnabled={setExternalApiEnabled}
+        setXAPIKey={setXApiKey}
+        setXAPISecret={setXAPISecret}
+        setXAccessToken={setXAcessToken}
+        setXAccessSecret={setXAccessSecret}
+        setXBearerToken={setXBearerToken}
+        setTelegramBotToken={setTelegramBotToken}
+        setTelegramChatId={setTelegramChatId}
         setSettingsUpdated={setSettingsUpdated}
         />
 
