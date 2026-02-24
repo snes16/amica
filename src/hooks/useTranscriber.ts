@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useWorker } from "./useWorker";
 import { updateFileProgress } from "@/utils/progress";
 
@@ -41,6 +42,7 @@ export interface Transcriber {
 }
 
 export function useTranscriber(): Transcriber {
+  const { i18n } = useTranslation();
   const [transcript, setTranscript] = useState<TranscriberData | undefined>(
     undefined,
   );
@@ -129,12 +131,31 @@ export function useTranscriber(): Transcriber {
           audio = audioData.getChannelData(0);
         }
 
+        const resolvedLanguage = i18n.resolvedLanguage || "en";
+        const baseLanguage = resolvedLanguage.split("-")[0];
+
+        let modelName: string;
+        let whisperLanguage: string;
+
+        if (baseLanguage === "en") {
+          // Самая быстрая английская модель
+          modelName = "Xenova/whisper-tiny.en";
+          whisperLanguage = "en";
+        } else {
+          // Мультиязычная, но максимально лёгкая модель для снижения задержки
+          modelName = "Xenova/whisper-tiny";
+          whisperLanguage = baseLanguage;
+        }
+
         webWorker.postMessage({
           audio,
+          language: whisperLanguage,
+          model: modelName,
+          task: "transcribe",
         });
       }
     },
-    [webWorker],
+    [webWorker, i18n],
   );
 
   const transcriber = useMemo(() => {

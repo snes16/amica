@@ -228,12 +228,17 @@ export default function MessageInput({
               />
               ) : (
                 <IconButton
-                iconName={vad.listening ? "24/PauseAlt" : "24/Microphone"}
-                className="bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
-                isProcessing={vad.userSpeaking}
-                disabled={config('stt_backend') === 'none' || vad.loading || Boolean(vad.errored)}
-                onClick={vad.toggle}
-              />
+                  iconName={vad.listening ? "24/PauseAlt" : "24/Microphone"}
+                  className="bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
+                  isProcessing={vad.userSpeaking || transcriber.isModelLoading}
+                  disabled={
+                    config('stt_backend') === 'none' ||
+                    vad.loading ||
+                    Boolean(vad.errored) ||
+                    transcriber.isModelLoading
+                  }
+                  onClick={vad.toggle}
+                />
               )}
             </div>
           </div>

@@ -88,8 +88,8 @@ export function FormRow({label, children}: {
 }
 
 export function basename(path: string) {
-  const a = path.split("/");
-  return a[a.length - 1];
+  const a = path?.split("/");
+  return a?.[a?.length - 1];
 }
 
 export function thumbPrefix(path: string) {
