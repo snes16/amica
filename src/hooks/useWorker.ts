@@ -21,7 +21,6 @@ function createWorker(
     const worker = new Worker(new URL("../workers/whisper.js", import.meta.url), {
       type: "module",
     });
-    // Listen for messages from the Web Worker
     worker.addEventListener("message", messageEventHandler);
     return worker;
   }

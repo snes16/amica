@@ -11,6 +11,7 @@ import { AlertContext } from "@/features/alert/alertContext";
 import { ChatContext } from "@/features/chat/chatContext";
 import { openaiWhisper  } from "@/features/openaiWhisper/openaiWhisper";
 import { whispercpp  } from "@/features/whispercpp/whispercpp";
+import { useVoskTranscriber } from "@/hooks/useVoskTranscriber";
 import { config } from "@/utils/config";
 import { WaveFile } from "wavefile";
 import { AmicaLifeContext } from "@/features/amicaLife/amicaLifeContext";
@@ -31,6 +32,7 @@ export default function MessageInput({
   ) => void;
 }) {
   const transcriber = useTranscriber();
+  const voskTranscriber = useVoskTranscriber();
   const inputRef = useRef<HTMLInputElement>(null);
   const [whisperOpenAIOutput, setWhisperOpenAIOutput] = useState<any | null>(null);
   const [whisperCppOutput, setWhisperCppOutput] = useState<any | null>(null);
@@ -106,6 +108,14 @@ export default function MessageInput({
                 alert.error('whispercpp error', e.toString());
               }
             })();
+            break;
+          }
+          case 'vosk': {
+            console.debug('vosk attempt');
+            const audioCtx = new AudioContext();
+            const buffer = audioCtx.createBuffer(1, audio.length, 16000);
+            buffer.copyToChannel(audio, 0, 0);
+            voskTranscriber.start(buffer);
             break;
           }
         }
@@ -198,6 +208,13 @@ export default function MessageInput({
     }
   }, [whisperCppOutput]);
 
+  // for vosk (browser WASM)
+  useEffect(() => {
+    if (voskTranscriber.output && !voskTranscriber.isBusy) {
+      handleTranscriptionResult(voskTranscriber.output.text);
+    }
+  }, [voskTranscriber]);
+
   function clickedSendButton() {
     bot.receiveMessageFromUser(userMessage,false);
     // only if we are using non-VAD mode should we focus on the input
@@ -230,12 +247,13 @@ export default function MessageInput({
                 <IconButton
                   iconName={vad.listening ? "24/PauseAlt" : "24/Microphone"}
                   className="bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
-                  isProcessing={vad.userSpeaking || transcriber.isModelLoading}
+                  isProcessing={vad.userSpeaking || transcriber.isModelLoading || voskTranscriber.isModelLoading}
                   disabled={
                     config('stt_backend') === 'none' ||
                     vad.loading ||
                     Boolean(vad.errored) ||
-                    transcriber.isModelLoading
+                    transcriber.isModelLoading ||
+                    voskTranscriber.isModelLoading
                   }
                   onClick={vad.toggle}
                 />
@@ -272,8 +290,8 @@ export default function MessageInput({
             <IconButton
               iconName="24/Send"
               className="ml-2 bg-secondary hover:bg-secondary-hover active:bg-secondary-press disabled:bg-secondary-disabled"
-              isProcessing={isChatProcessing || transcriber.isBusy}
-              disabled={isChatProcessing || !userMessage || transcriber.isModelLoading || config("chatbot_backend") === "moshi"}
+              isProcessing={isChatProcessing || transcriber.isBusy || voskTranscriber.isBusy}
+              disabled={isChatProcessing || !userMessage || transcriber.isModelLoading || voskTranscriber.isModelLoading || config("chatbot_backend") === "moshi"}
               onClick={clickedSendButton}
             />
           </div>

@@ -59,6 +59,7 @@ import { STTWakeWordSettingsPage } from './settings/STTWakeWordSettingsPage';
 
 import { WhisperOpenAISettingsPage } from './settings/WhisperOpenAISettingsPage';
 import { WhisperCppSettingsPage } from './settings/WhisperCppSettingsPage';
+import { VoskSettingsPage } from './settings/VoskSettingsPage';
 
 import { VisionBackendPage } from './settings/VisionBackendPage';
 import { VisionLlamaCppSettingsPage } from './settings/VisionLlamaCppSettingsPage';
@@ -165,6 +166,7 @@ export const Settings = ({
   const [whisperOpenAIApiKey, setWhisperOpenAIApiKey] = useState(config("openai_whisper_apikey"));
   const [whisperOpenAIModel, setWhisperOpenAIModel] = useState(config("openai_whisper_model"));
   const [whisperCppUrl, setWhisperCppUrl] = useState(config("whispercpp_url"));
+  const [voskModelUrl, setVoskModelUrl] = useState(config("vosk_model_url"));
 
   const [amicaLifeEnabled,setAmicaLifeEnabled] = useState<boolean>(config("amica_life_enabled") === 'true' ? true : false);
   const [timeBeforeIdle, setTimeBeforeIdle] = useState<number>(parseInt(config("time_before_idle_sec")));
@@ -299,6 +301,7 @@ export const Settings = ({
     sttBackend,
     whisperOpenAIApiKey, whisperOpenAIModel, whisperOpenAIUrl,
     whisperCppUrl,
+    voskModelUrl,
     amicaLifeEnabled ,timeBeforeIdle, minTimeInterval, maxTimeInterval, timeToSleep, idleTextPrompt,
     reasoningEngineEnabled, reasoningEngineUrl,
     externalApiEnabled,
@@ -378,7 +381,7 @@ export const Settings = ({
 
     case 'stt':
       return <MenuPage
-        keys={["stt_backend", "stt_wake_word", "whisper_openai_settings", "whispercpp_settings"]}
+        keys={["stt_backend", "stt_wake_word", "whisper_openai_settings", "whispercpp_settings", "vosk_settings"]}
         menuClick={handleMenuClick} />;
 
     case 'vision':
@@ -660,6 +663,13 @@ export const Settings = ({
       return <WhisperCppSettingsPage
         whisperCppUrl={whisperCppUrl}
         setWhisperCppUrl={setWhisperCppUrl}
+        setSettingsUpdated={setSettingsUpdated}
+        />
+
+    case 'vosk_settings':
+      return <VoskSettingsPage
+        voskModelUrl={voskModelUrl}
+        setVoskModelUrl={setVoskModelUrl}
         setSettingsUpdated={setSettingsUpdated}
         />
 

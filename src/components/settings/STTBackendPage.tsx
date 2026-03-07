@@ -8,6 +8,7 @@ const sttEngines = [
   {key: "whisper_browser", label: "Whisper (Browser)"},
   {key: "whisper_openai",  label: "Whisper (OpenAI)"},
   {key: "whispercpp",      label: "Whisper.cpp"},
+  {key: "vosk",            label: "Vosk"},
 ];
 
 function idToTitle(id: string): string {
@@ -54,7 +55,7 @@ export function STTBackendPage({
             </select>
           </FormRow>
         </li>
-        { ["whisper_openai", "whispercpp"].includes(sttBackend) && (
+        { ["whisper_openai", "whispercpp", "vosk"].includes(sttBackend) && (
           <li className="py-4">
             <FormRow label={`${t("Configure")} ${t(idToTitle(sttBackend))}`}>
               <button

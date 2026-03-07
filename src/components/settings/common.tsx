@@ -181,6 +181,7 @@ export function getIconFromPage(page: string): JSX.Element {
     case 'stt_wake_word':            return <MoonIcon className="h-5 w-5 flex-none text-gray-800" aria-hidden="true" />;
     case 'whisper_openai_settings':  return <AdjustmentsHorizontalIcon className="h-5 w-5 flex-none text-gray-800" aria-hidden="true" />;
     case 'whispercpp_settings':      return <AdjustmentsHorizontalIcon className="h-5 w-5 flex-none text-gray-800" aria-hidden="true" />;
+    case 'vosk_settings':            return <AdjustmentsHorizontalIcon className="h-5 w-5 flex-none text-gray-800" aria-hidden="true" />;
 
     case 'vision_backend':           return <EyeDropperIcon className="h-5 w-5 flex-none text-gray-800" aria-hidden="true" />;
     case 'vision_llamacpp_settings': return <AdjustmentsHorizontalIcon className="h-5 w-5 flex-none text-gray-800" aria-hidden="true" />;
@@ -244,6 +245,7 @@ function getLabelFromPage(page: string): string {
     case 'stt_wake_word':           return t("Wake word");
     case 'whisper_openai_settings': return t("Whisper (OpenAI)");
     case 'whispercpp_settings':     return t("Whisper.cpp");
+    case 'vosk_settings':           return t("Vosk");
   }
 
   throw new Error(`unknown page label encountered ${page}`);

@@ -41,3 +41,6 @@ working/*
 
 # Sentry Config File
 .env.sentry-build-plugin
+CLAUDE.md
+src/features/externalAPI/dataHandlerStorage/config.json
+src/features/externalAPI/dataHandlerStorage/config.json

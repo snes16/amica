@@ -138,11 +138,9 @@ export function useTranscriber(): Transcriber {
         let whisperLanguage: string;
 
         if (baseLanguage === "en") {
-          // Самая быстрая английская модель
           modelName = "Xenova/whisper-tiny.en";
           whisperLanguage = "en";
         } else {
-          // Мультиязычная, но максимально лёгкая модель для снижения задержки
           modelName = "Xenova/whisper-tiny";
           whisperLanguage = baseLanguage;
         }
