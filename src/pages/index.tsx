@@ -28,6 +28,7 @@ import {
   WrenchScrewdriverIcon,
   SignalIcon,
   AcademicCapIcon,
+  ComputerDesktopIcon,
 } from "@heroicons/react/24/outline";
 import { IconBrain } from '@tabler/icons-react';
 
@@ -46,6 +47,7 @@ import { LoadingProgress } from "@/components/loadingProgress";
 import { DebugPane } from "@/components/debugPane";
 import { Settings } from "@/components/settings";
 import { EmbeddedWebcam } from "@/components/embeddedWebcam";
+import { ScreenCapture } from "@/components/screenCapture";
 import { Moshi } from "@/features/moshi/components/Moshi";
 
 import { ViewerContext } from "@/features/vrmViewer/viewerContext";
@@ -145,6 +147,7 @@ export default function Home() {
   // null indicates havent loaded config yet
   const [muted, setMuted] = useState<boolean|null>(null);
   const [webcamEnabled, setWebcamEnabled] = useState(false);
+  const [screenCaptureEnabled, setScreenCaptureEnabled] = useState(false);
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
 
   const [showStreamWindow, setShowStreamWindow] = useState(false);
@@ -366,6 +369,7 @@ export default function Home() {
       <LoadingProgress />
 
       { webcamEnabled && <EmbeddedWebcam setWebcamEnabled={setWebcamEnabled} /> }
+      { screenCaptureEnabled && <ScreenCapture setScreenCaptureEnabled={setScreenCaptureEnabled} /> }
       { showDebug && <DebugPane onClickClose={() => setShowDebug(false) }/> }
       { config("chatbot_backend") === "moshi" && <Moshi setAssistantText={setAssistantMessage}/>  }
 
@@ -438,6 +442,13 @@ export default function Home() {
                 label="enable webcam"
               />
             )}
+
+            <MenuButton
+              large={isVRHeadset}
+              icon={ComputerDesktopIcon}
+              onClick={() => setScreenCaptureEnabled(!screenCaptureEnabled)}
+              label="capture screen"
+            />
 
             <MenuButton
               large={isVRHeadset}

@@ -738,7 +738,7 @@ export class Chat {
     return getEchoChatResponseStream(messages);
   }
 
-  public async getVisionResponse(imageData: string) {
+  public async getVisionResponse(imageData: string, imageSource: string = "webcam") {
     try {
       const visionBackend = config("vision_backend");
 
@@ -800,7 +800,7 @@ export class Chat {
         ...this.messageList!,
         {
           role: "user",
-          content: `This is a picture I just took from my webcam (described between [[ and ]] ): [[${res}]] Please respond accordingly and as if it were just sent and as though you can see it.`,
+          content: `This is a picture I just took from my ${imageSource} (described between [[ and ]] ): [[${res}]] Please respond accordingly and as if it were just sent and as though you can see it.`,
         },
       ]);
     } catch (e: any) {
