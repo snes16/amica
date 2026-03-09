@@ -241,7 +241,10 @@ export class Viewer {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.xr.enabled = true;
     // TODO should this be enabled for only the quest3?
-    renderer.xr.setFramebufferScaleFactor(2.0); // reduce pixelation with minimal performance hit on quest 3
+    // WebGPURenderer's XR manager does not expose setFramebufferScaleFactor
+    if (typeof renderer.xr.setFramebufferScaleFactor === "function") {
+      renderer.xr.setFramebufferScaleFactor(2.0); // reduce pixelation with minimal performance hit on quest 3
+    }
     // webgpu does not support foveation yet
     if (config("use_webgpu") !== "true") {
       renderer.xr.setFoveation(0);

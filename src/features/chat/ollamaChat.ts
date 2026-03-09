@@ -30,9 +30,9 @@ export async function getOllamaChatResponseStream(messages: Message[]) {
           if (done) break;
           const data = decoder.decode(value);
           const jsonResponses = data
-            .trim() // Ollama sends an empty line after the final JSON message...
+            .trim()
             .split("\n")
-            //.filter((val) => !!val) 
+            .filter((val) => !!val)
 
           for (const jsonResponse of jsonResponses) {
             try {
@@ -67,21 +67,25 @@ export async function getOllamaVisionChatResponse(messages: Message[], imageData
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
+  const lastUserIdx = messages.map((m) => m.role).lastIndexOf("user");
+  const messagesWithImage = messages.map((msg, i) =>
+    i === lastUserIdx ? { ...msg, images: [imageData] } : msg
+  );
+
   const res = await fetch(`${config("vision_ollama_url")}/api/chat`, {
     headers: headers,
     method: "POST",
     body: JSON.stringify({
       model: config("vision_ollama_model"),
-      messages,
-      images: [imageData],
+      messages: messagesWithImage,
       stream: false,
     }),
   });
 
   if (res.status !== 200) {
-    throw new Error(`Ollama chat error (${res.status})`);
+    throw new Error(`Ollama vision chat error (${res.status})`);
   }
 
   const json = await res.json();
-  return json.response;
+  return json.message?.content ?? "";
 }

@@ -115,10 +115,7 @@ export class Model {
     }
 
     if (config("use_webgpu") === "true") {
-      // create a WebGPU compatible MToonMaterialLoaderPlugin
-      // @ts-ignore
-      // TODO currently MToonNodeMaterial is broken in amica
-      // materialType = MTonNodeMaterial;
+      // MToonNodeMaterial is currently broken in amica — leave materialType as-is
     }
 
     loader.register((parser) => {
